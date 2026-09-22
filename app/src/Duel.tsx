@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Check, Clipboard, LockKeyhole, MoonStar, RotateCcw, ShieldCheck, Star, Users, Zap } from 'lucide-react';
+import { ArrowRight, Check, Clipboard, Download, LockKeyhole, MoonStar, RotateCcw, ShieldCheck, Star, Users, Zap } from 'lucide-react';
 import { duelRequest, moveCommitment, randomSalt, type DuelMove, type DuelRoom } from './game/duel';
 
 type Session = { id: string; balance: number; wins: number; played: number };
@@ -112,6 +112,18 @@ export default function Duel() {
     const [mine, theirs] = await Promise.all([moveCommitment(room.myMove, room.mySalt), moveCommitment(room.rivalMove, room.rivalSalt)]);
     setVerified(mine === room.myCommitment && theirs === room.rivalCommitment);
   };
+  const downloadProof = () => {
+    if (!room || room.state !== 'DONE' || !room.myMove || !room.rivalMove || !room.mySalt || !room.rivalSalt) return;
+    const proof = { protocol: 'nightflip-duel-v1', mode: 'centralized-demo', room: room.code,
+      result: room.result, winner: room.winner, rule: 'MOON>STAR>SHADOW>MOON',
+      you: { move: room.myMove, salt: room.mySalt, commitment: room.myCommitment },
+      rival: { move: room.rivalMove, salt: room.rivalSalt, commitment: room.rivalCommitment } };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(proof, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url; link.download = `nightduel-proof-${room.code}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   const secondsLeft = room ? Math.max(0, Math.ceil(((room.state === 'WAITING' ? room.joinBy : room.revealBy || 0) - clock) / 1000)) : 0;
   const resultTitle = room?.result === 'TIE' ? 'DRAW GAME' : room?.result === 'NO_OPPONENT' ? 'NO RIVAL ARRIVED' : room?.result === 'BOTH_REFUNDED' ? 'BOTH REFUNDED' : room?.winner === 'YOU' ? 'YOU OWN THE NIGHT' : 'RIVAL TAKES THE ROUND';
 
@@ -130,7 +142,7 @@ export default function Duel() {
           {room.state === 'REVEAL' ? <><span className="eyebrow">03 / COMMITMENTS ARE SEALED</span><h2>{room.myMove ? 'MOVE REVEALED.' : 'SHOW YOUR HAND.'}</h2><p>{room.myMove ? 'Your move is verified. Waiting for your rival to reveal.' : 'Both players locked a move. Reveal yours now; the winner is decided only after both reveals.'}</p><div className="duel-status-grid"><div><span>YOU</span><b>{room.myMove || 'HIDDEN'}</b></div><div><span>RIVAL</span><b>{room.rivalRevealed ? 'REVEALED' : 'HIDDEN'}</b></div></div>{!room.myMove && <button className="button button-lime" onClick={() => void reveal()} disabled={busy}><Zap size={19} /> REVEAL MY MOVE</button>}<small>REVEAL WINDOW • {secondsLeft}s LEFT</small></> : null}
           {(room.state === 'DONE' || room.state === 'CANCELLED') && <><span className="eyebrow">04 / THE NIGHT HAS SPOKEN</span><h2>{resultTitle}</h2><p>{room.result === 'TIE' || room.result === 'BOTH_REFUNDED' || room.result === 'NO_OPPONENT' ? 'Stake refunded to your demo balance.' : room.winner === 'YOU' ? '+1.90 demo credits added to your balance.' : 'Your rival won this round. Try a new move.'}</p><div className="duel-status-grid"><div><span>YOU PLAYED</span><b>{room.myMove || 'UNREVEALED'}</b></div><div><span>RIVAL PLAYED</span><b>{room.rivalMove || 'UNREVEALED'}</b></div></div><button className="button button-lime" onClick={newDuel}>PLAY AGAIN <RotateCcw size={17} /></button></>}
           <div className="duel-proof"><ShieldCheck size={16} /> YOUR COMMITMENT: <code>{room.myCommitment.slice(0, 24)}…</code></div>
-          {room.state === 'DONE' && room.myMove && room.rivalMove && <div className="duel-audit"><div><span>YOUR SEALED HASH</span><code>{room.myCommitment}</code></div><div><span>RIVAL SEALED HASH</span><code>{room.rivalCommitment}</code></div><div><span>YOUR REVEAL SALT</span><code>{room.mySalt}</code></div><div><span>RIVAL REVEAL SALT</span><code>{room.rivalSalt}</code></div><button onClick={() => void verify()}><ShieldCheck size={15} /> VERIFY BOTH MOVES</button>{verified !== null && <strong className={verified ? 'verify-good' : 'verify-bad'}>{verified ? 'BOTH COMMITMENTS MATCH' : 'PROOF CHECK FAILED'}</strong>}</div>}
+          {room.state === 'DONE' && room.myMove && room.rivalMove && <div className="duel-audit"><div><span>YOUR SEALED HASH</span><code>{room.myCommitment}</code></div><div><span>RIVAL SEALED HASH</span><code>{room.rivalCommitment}</code></div><div><span>YOUR REVEAL SALT</span><code>{room.mySalt}</code></div><div><span>RIVAL REVEAL SALT</span><code>{room.rivalSalt}</code></div><button onClick={() => void verify()}><ShieldCheck size={15} /> VERIFY BOTH MOVES</button><button onClick={downloadProof}><Download size={15} /> SAVE PROOF JSON</button>{verified !== null && <strong className={verified ? 'verify-good' : 'verify-bad'}>{verified ? 'BOTH COMMITMENTS MATCH' : 'PROOF CHECK FAILED'}</strong>}</div>}
         </div>}
         {error && <p className="inline-error" role="alert">{error}</p>}
       </div>
