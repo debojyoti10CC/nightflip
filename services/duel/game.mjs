@@ -107,6 +107,11 @@ export class DuelGame {
   create(playerId, hash) {
     const player = this.player(playerId);
     if (!validHash(hash)) fail(400, 'Invalid move commitment.');
+    for (const room of this.rooms.values()) this.settleExpired(room);
+    if ([...this.rooms.values()].some((room) => (room.state === 'WAITING' || room.state === 'REVEAL') &&
+        (room.first.id === playerId || room.second?.id === playerId))) fail(409, 'Finish your active duel before starting another.');
+    if ([...this.rooms.values()].filter((room) => room.state === 'WAITING' || room.state === 'REVEAL').length >= 200)
+      fail(503, 'The demo room board is full. Try again shortly.');
     if (player.balance < STAKE) fail(409, 'Not enough demo credits.');
     player.balance -= STAKE;
     let roomCode;
@@ -125,6 +130,9 @@ export class DuelGame {
     if (!validHash(hash)) fail(400, 'Invalid move commitment.');
     if (room.state !== 'WAITING') fail(409, 'This room is no longer open.');
     if (room.first.id === playerId) fail(409, 'Open this invite in another browser to join as the rival.');
+    for (const active of this.rooms.values()) this.settleExpired(active);
+    if ([...this.rooms.values()].some((active) => (active.state === 'WAITING' || active.state === 'REVEAL') &&
+        (active.first.id === playerId || active.second?.id === playerId))) fail(409, 'Finish your active duel before joining another.');
     if (player.balance < STAKE) fail(409, 'Not enough demo credits.');
     player.balance -= STAKE;
     room.second = { id: playerId, commitment: hash, move: null, salt: null };

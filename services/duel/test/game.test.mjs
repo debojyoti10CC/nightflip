@@ -84,3 +84,14 @@ test('open-room board shows rival rooms but excludes your own and expired rooms'
   assert.deepEqual(game.openRooms(b), []);
   assert.equal(game.player(a).balance, 500);
 });
+
+test('a demo session cannot lock credits in several simultaneous rooms', () => {
+  const game = new DuelGame();
+  const a = game.newPlayer().id;
+  const b = game.newPlayer().id;
+  const room = game.create(a, commitment('MOON', 'a'.repeat(64)));
+  assert.throws(() => game.create(a, commitment('STAR', 'b'.repeat(64))), /Finish your active duel/);
+  const rivalRoom = game.create(b, commitment('STAR', 'c'.repeat(64)));
+  assert.throws(() => game.join(a, rivalRoom.code, commitment('SHADOW', 'd'.repeat(64))), /Finish your active duel/);
+  assert.equal(game.view(room.code, a).balance, 400);
+});
