@@ -1,35 +1,34 @@
-# NightFlip
+# NightFlip / Night Duel
 
-NightFlip is a Midnight Preprod coin-flip game prototype. Players choose Moon or Shadow privately and stake a fixed 1 tNIGHT test token. A revealed round seed determines the outcome; a valid winner can claim 1.90 tNIGHT, and a player can refund a stake if the operator misses the reveal deadline.
+A bold, late-90s-inspired Midnight arcade. **Night Duel** is a two-player strategy game: Moon beats Star, Star beats Shadow, Shadow beats Moon. Each player locks a hidden move and a fixed stake, then both reveal. **Solo Flip** preserves the original Moon/Shadow coin-flip MVP.
 
-**Status:** checkpoint 2 of 6 complete. The Compact contract compiles and its local simulator tests pass. The browser game and live Preprod path are not built yet. No real-value tokens, purchases, redemption, or prizes are supported.
+The browser currently runs a clearly labeled **demo with simulated credits**. Night Duel rooms work between separate browsers through the included service. The wallet modal can connect a compatible Lace API on Preprod to check readiness; neither game mode currently submits a Midnight transaction. Two Compact contracts compile locally and have simulator tests; they are **not deployed**. Do not present demo rounds as on-chain activity.
 
-## Build checkpoints
+## Run locally
 
-1. **Foundation and version gate** — extract requirements, verify official compatibility information, create the repository structure and project scripts.
-2. **Contract and protocol** — implement registration, commitment, fixed stake, reveal, winner claim, timeout refund, authorization, and simulator tests.
-3. **Playable game** — create the responsive 90s-inspired Night Room, animation, local state and full game flow.
-4. **Preprod connection** — integrate Lace, prover, operator, wallet balances and transactions; deploy and test on Preprod when an operator wallet and test funds are available.
-5. **Beta operations** — add DUST sponsorship, funding help, feedback, privacy-safe analytics and verified-user export.
-6. **Release proof** — harden the build, run full QA, complete documentation and prepare the live demo and submission evidence.
-
-The source PRD is `NightFlip_Midnight_Level5_PRD.docx` supplied separately. See [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md) for the scope and dependencies, and [docs/NETWORK.md](docs/NETWORK.md) for the current toolchain snapshot.
-
-## Local prerequisites
-
-- Node.js 22.15 or newer (24.16 detected on this machine)
-- Docker for the proof server
-- WSL/Linux for the Compact developer toolchain (the Windows `compact.exe` command is unrelated)
-- Lace Midnight wallet configured for Preprod for end-to-end testing
-
-No wallet seed or operator key should be committed to this repository.
-
-## Contract development
+Node.js 22.15+ and npm are required. Compact compilation additionally requires the official Linux toolchain (WSL Ubuntu on Windows).
 
 ```sh
 npm install
-npm run compile -w @nightflip/contract
-npm test -w @nightflip/contract
+npm run dev
 ```
 
-The compile command invokes WSL Ubuntu on Windows. Contract behavior, value units, and integration limits are described in [contract/README.md](contract/README.md).
+Open `http://127.0.0.1:5173/`. To test Night Duel, create a room, copy its link, and open it in another browser or private window. Both players get 5 simulated credits. The dev command starts the UI on 5173 and room service on 8787. Room and session state is saved in ignored `data/duel-state.json`; feedback is saved in ignored `data/feedback.jsonl`.
+
+```sh
+npm run build
+npm run test
+npm run compile -w @nightflip/contract
+```
+
+## Game rules
+
+Night Duel locks one simulated credit per player. The winner receives 1.90, the remaining 0.10 is the intended treasury fee, and a tie refunds both. If nobody joins in five minutes, the creator is refunded. Once a rival joins, both have three minutes to reveal. A player who reveals wins by forfeit if the other stays silent; if neither reveals, both are refunded. The browser service uses salted SHA-256 commitments and displays both proof values after a completed duel.
+
+The `nightduel.compact` contract models the same move and payout rules with Midnight `persistentCommit` and native test-token transfers. The original `nightflip.compact` contract has a private Moon/Shadow bet, committed operator seed, 1.00 stake, 1.90 winning claim, and timeout refund. Their integration and deployment remain release gates. See [duel design](docs/DUEL.md), [contract notes](contract/README.md), and [network status](docs/NETWORK.md).
+
+## Submission status
+
+The code and local demo are reviewable. A Level 5 submission still needs a public GitHub repository, hosted demo and room service, funded Preprod deployment with wallet transactions, 70 genuine verifiable participant wallet addresses, beta feedback, a full demo video, and at least 30 meaningful commits. No participant or on-chain evidence has been invented. See [submission evidence](docs/SUBMISSION.md) and [feedback log](docs/FEEDBACK.md).
+
+No real-value tokens, purchases, redemption, or prizes are supported. Never enter a wallet seed phrase into the app or commit one to the repository.
