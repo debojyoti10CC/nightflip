@@ -2,7 +2,7 @@
 
 NightFlip is a Midnight Preprod coin-flip game prototype. Players choose Moon or Shadow privately and stake a fixed 1 tNIGHT test token. A revealed round seed determines the outcome; a valid winner can claim 1.90 tNIGHT, and a player can refund a stake if the operator misses the reveal deadline.
 
-**Status:** checkpoint 1 of 6 complete. This repository is a scaffold, not yet a playable or deployed DApp. No real-value tokens, purchases, redemption, or prizes are supported.
+**Status:** checkpoint 2 of 6 complete. The Compact contract compiles and its local simulator tests pass. The browser game and live Preprod path are not built yet. No real-value tokens, purchases, redemption, or prizes are supported.
 
 ## Build checkpoints
 
@@ -23,3 +23,13 @@ The source PRD is `NightFlip_Midnight_Level5_PRD.docx` supplied separately. See 
 - Lace Midnight wallet configured for Preprod for end-to-end testing
 
 No wallet seed or operator key should be committed to this repository.
+
+## Contract development
+
+```sh
+npm install
+npm run compile -w @nightflip/contract
+npm test -w @nightflip/contract
+```
+
+The compile command invokes WSL Ubuntu on Windows. Contract behavior, value units, and integration limits are described in [contract/README.md](contract/README.md).

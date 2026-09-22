@@ -16,7 +16,7 @@ This plan translates the supplied NightFlip PRD into six reviewable checkpoints.
 | Step | Reviewable result | Verification |
 | --- | --- | --- |
 | 1 | Repo scaffold, requirements summary, compatibility snapshot | Files and host prerequisites checked |
-| 2 | Compiled Compact contract and state-transition tests | Local simulator tests, including loss, double claim and timeout |
+| 2 | Compiled Compact contract and state-transition tests | **Complete:** local simulator tests cover loss, double claim, timeout, pause and bankroll |
 | 3 | Full 90s-style browser game, including a clearly labeled local demo mode | Browser playthrough at desktop and mobile widths |
 | 4 | Real Preprod wallet and transaction path | Funded test wallet playthrough and explorer links |
 | 5 | Operator/sponsor controls, feedback, metrics and evidence export | Abuse and privacy checks; real verified rows only |
