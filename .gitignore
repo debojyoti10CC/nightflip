@@ -4,6 +4,6 @@ coverage/
 .env
 .env.*
 !.env.example
-contract/managed/
+contract/src/managed/
 work/
 *.log
