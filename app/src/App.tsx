@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ArrowDownRight, ArrowRight, Check, Coins,
+  ArrowDownRight, ArrowRight, Check, Coins, Download,
   History, LockKeyhole, Menu, MoonStar, RotateCcw, ShieldCheck,
   Sparkles, Star, Users, Volume2, VolumeX, Wallet, X,
 } from 'lucide-react';
@@ -41,6 +41,14 @@ function FairnessPanel({ round, onClose }: { round?: DemoRound; onClose: () => v
   const [verified, setVerified] = useState<boolean | null>(null);
   useEffect(() => { setVerified(null); }, [round]);
   const check = async () => { if (round) setVerified(await verifyDemoRound(round)); };
+  const download = () => {
+    if (!round) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ protocol: 'nightflip-solo-demo-v1', mode: 'browser-demo', ...round }, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url; link.download = `nightflip-proof-${round.id}.json`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
   return <Modal title="FAIRNESS CHECK" onClose={onClose}>
     <p className="modal-lede">Each demo round locks a random seed behind a commitment before the coin flips. After the flip, the seed is revealed so you can reproduce the result.</p>
     {round ? <>
@@ -52,6 +60,7 @@ function FairnessPanel({ round, onClose }: { round?: DemoRound; onClose: () => v
         <div><span>RULE</span><strong>First hash byte ≥ 128 → Moon; otherwise Shadow</strong></div>
       </div>
       <button className="button button-lime modal-action" onClick={check}><ShieldCheck size={17} /> VERIFY THIS ROUND</button>
+      <button className="button button-outline modal-action" onClick={download}><Download size={17} /> SAVE PROOF JSON</button>
       {verified !== null && <p className={verified ? 'verify-good' : 'verify-bad'}>{verified ? '✓ Commitment and result verified in your browser.' : 'Verification failed. This demo round may have been altered.'}</p>}
     </> : <div className="empty-proof"><ShieldCheck size={33} /><p>Flip once to reveal the first proof record.</p></div>}
     <p className="modal-footnote">Demo hashes use browser SHA-256. The Preprod contract uses Midnight Compact persistent hashes and zero-knowledge proofs. Demo credits are local and have no token value.</p>
