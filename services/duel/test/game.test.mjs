@@ -1,6 +1,17 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { DuelGame, commitment } from '../game.mjs';
+import { DuelGame, commitment, compareMoves } from '../game.mjs';
+
+test('the three-move cycle is complete and antisymmetric', () => {
+  const moves = ['MOON', 'SHADOW', 'STAR'];
+  for (const move of moves) assert.equal(compareMoves(move, move), 0);
+  for (const first of moves) for (const second of moves) {
+    if (first !== second) assert.equal(compareMoves(first, second), -compareMoves(second, first));
+  }
+  assert.equal(compareMoves('MOON', 'STAR'), 1);
+  assert.equal(compareMoves('STAR', 'SHADOW'), 1);
+  assert.equal(compareMoves('SHADOW', 'MOON'), 1);
+});
 
 test('two browsers lock hidden moves, reveal, and settle one payout', () => {
   const game = new DuelGame();
