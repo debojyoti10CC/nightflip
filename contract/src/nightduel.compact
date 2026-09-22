@@ -1,0 +1,149 @@
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+// A separate, fixed-stake head-to-head protocol. Amounts are STAR (1 NIGHT = 1,000,000 STAR).
+export enum DuelState { WAITING, REVEAL, DONE, CANCELLED }
+
+export ledger treasury: UserAddress;
+export ledger nextDuelId: Uint<64>;
+export ledger states: Map<Uint<64>, DuelState>;
+export ledger creator: Map<Uint<64>, UserAddress>;
+export ledger challenger: Map<Uint<64>, UserAddress>;
+export ledger creatorKey: Map<Uint<64>, Bytes<32>>;
+export ledger challengerKey: Map<Uint<64>, Bytes<32>>;
+export ledger creatorCommitment: Map<Uint<64>, Bytes<32>>;
+export ledger challengerCommitment: Map<Uint<64>, Bytes<32>>;
+export ledger creatorMove: Map<Uint<64>, Uint<8>>;
+export ledger challengerMove: Map<Uint<64>, Uint<8>>;
+export ledger creatorRevealed: Map<Uint<64>, Boolean>;
+export ledger challengerRevealed: Map<Uint<64>, Boolean>;
+export ledger joinBy: Map<Uint<64>, Uint<64>>;
+export ledger revealBy: Map<Uint<64>, Uint<64>>;
+export ledger duelCount: Counter;
+
+constructor(treasuryAddress: UserAddress) {
+  treasury = disclose(treasuryAddress);
+  nextDuelId = 1;
+}
+
+export circuit playerKey(secret: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "nightduel:key:v1"), secret]);
+}
+
+export circuit moveCommit(move: Uint<8>, salt: Bytes<32>, key: Bytes<32>, duelId: Uint<64>): Bytes<32> {
+  assert(move < 3, "Invalid move");
+  return persistentCommit<Vector<4, Bytes<32>>>([
+    pad(32, "nightduel:move:v1"),
+    move as Field as Bytes<32>,
+    key,
+    duelId as Field as Bytes<32>
+  ], salt);
+}
+
+// 0 = Moon, 1 = Shadow, 2 = Star.
+export circuit creatorWins(first: Uint<8>, second: Uint<8>): Boolean {
+  return (first == 0 && second == 2) ||
+    (first == 2 && second == 1) ||
+    (first == 1 && second == 0);
+}
+
+export circuit createDuel(address: UserAddress, move: Uint<8>, salt: Bytes<32>, secret: Bytes<32>, joinDeadline: Uint<64>, revealDeadline: Uint<64>): Uint<64> {
+  assert(move < 3, "Invalid move");
+  assert(joinDeadline < revealDeadline, "Invalid deadlines");
+  assert(blockTimeLt(disclose(joinDeadline)), "Join deadline passed");
+  receiveUnshielded(nativeToken(), 1000000);
+  const id = nextDuelId;
+  const key = playerKey(secret);
+  states.insert(id, DuelState.WAITING);
+  creator.insert(id, disclose(address));
+  creatorKey.insert(id, disclose(key));
+  creatorCommitment.insert(id, disclose(moveCommit(move, salt, key, id)));
+  creatorRevealed.insert(id, false);
+  challengerRevealed.insert(id, false);
+  joinBy.insert(id, disclose(joinDeadline));
+  revealBy.insert(id, disclose(revealDeadline));
+  nextDuelId = (id + 1) as Uint<64>;
+  duelCount.increment(1);
+  return id;
+}
+
+export circuit joinDuel(id: Uint<64>, address: UserAddress, move: Uint<8>, salt: Bytes<32>, secret: Bytes<32>): [] {
+  assert(states.member(disclose(id)), "Unknown duel");
+  assert(states.lookup(disclose(id)) == DuelState.WAITING, "Duel is not open");
+  assert(blockTimeLt(joinBy.lookup(disclose(id))), "Join deadline passed");
+  assert(move < 3, "Invalid move");
+  const key = playerKey(secret);
+  assert(key != creatorKey.lookup(disclose(id)), "Cannot join your own duel");
+  assert(address != creator.lookup(disclose(id)), "Use a distinct player address");
+  receiveUnshielded(nativeToken(), 1000000);
+  challenger.insert(disclose(id), disclose(address));
+  challengerKey.insert(disclose(id), disclose(key));
+  challengerCommitment.insert(disclose(id), disclose(moveCommit(move, salt, key, id)));
+  states.insert(disclose(id), DuelState.REVEAL);
+}
+
+export circuit revealMove(id: Uint<64>, move: Uint<8>, salt: Bytes<32>, secret: Bytes<32>): [] {
+  assert(states.member(disclose(id)), "Unknown duel");
+  assert(states.lookup(disclose(id)) == DuelState.REVEAL, "Duel is not revealing");
+  assert(blockTimeLt(revealBy.lookup(disclose(id))), "Reveal deadline passed");
+  assert(move < 3, "Invalid move");
+  const key = playerKey(secret);
+  // The reveal transaction publicly identifies which seat revealed; the secret itself stays private.
+  if (disclose(key == creatorKey.lookup(disclose(id)))) {
+    assert(!creatorRevealed.lookup(disclose(id)), "Already revealed");
+    assert(creatorCommitment.lookup(disclose(id)) == moveCommit(move, salt, key, id), "Move commitment mismatch");
+    creatorMove.insert(disclose(id), disclose(move));
+    creatorRevealed.insert(disclose(id), true);
+  } else {
+    assert(key == challengerKey.lookup(disclose(id)), "Not a duel player");
+    assert(!challengerRevealed.lookup(disclose(id)), "Already revealed");
+    assert(challengerCommitment.lookup(disclose(id)) == moveCommit(move, salt, key, id), "Move commitment mismatch");
+    challengerMove.insert(disclose(id), disclose(move));
+    challengerRevealed.insert(disclose(id), true);
+  }
+  if (creatorRevealed.lookup(disclose(id)) && challengerRevealed.lookup(disclose(id))) {
+    states.insert(disclose(id), DuelState.DONE);
+    const first = creatorMove.lookup(disclose(id));
+    const second = challengerMove.lookup(disclose(id));
+    if (first == second) {
+      sendUnshielded(nativeToken(), 1000000, right<ContractAddress, UserAddress>(creator.lookup(disclose(id))));
+      sendUnshielded(nativeToken(), 1000000, right<ContractAddress, UserAddress>(challenger.lookup(disclose(id))));
+    } else {
+      if (creatorWins(first, second)) {
+        sendUnshielded(nativeToken(), 1900000, right<ContractAddress, UserAddress>(creator.lookup(disclose(id))));
+      } else {
+        sendUnshielded(nativeToken(), 1900000, right<ContractAddress, UserAddress>(challenger.lookup(disclose(id))));
+      }
+      sendUnshielded(nativeToken(), 100000, right<ContractAddress, UserAddress>(treasury));
+    }
+  }
+}
+
+export circuit refundUnmatched(id: Uint<64>, secret: Bytes<32>): [] {
+  assert(states.member(disclose(id)), "Unknown duel");
+  assert(states.lookup(disclose(id)) == DuelState.WAITING, "Duel is not waiting");
+  assert(creatorKey.lookup(disclose(id)) == playerKey(secret), "Creator only");
+  assert(blockTimeGte(joinBy.lookup(disclose(id))), "Join deadline not reached");
+  states.insert(disclose(id), DuelState.CANCELLED);
+  sendUnshielded(nativeToken(), 1000000, right<ContractAddress, UserAddress>(creator.lookup(disclose(id))));
+}
+
+export circuit settleExpired(id: Uint<64>): [] {
+  assert(states.member(disclose(id)), "Unknown duel");
+  assert(states.lookup(disclose(id)) == DuelState.REVEAL, "Duel is not revealing");
+  assert(blockTimeGte(revealBy.lookup(disclose(id))), "Reveal deadline not reached");
+  states.insert(disclose(id), DuelState.DONE);
+  const first = creatorRevealed.lookup(disclose(id));
+  const second = challengerRevealed.lookup(disclose(id));
+  if (first && !second) {
+    sendUnshielded(nativeToken(), 1900000, right<ContractAddress, UserAddress>(creator.lookup(disclose(id))));
+    sendUnshielded(nativeToken(), 100000, right<ContractAddress, UserAddress>(treasury));
+  } else if (!first && second) {
+    sendUnshielded(nativeToken(), 1900000, right<ContractAddress, UserAddress>(challenger.lookup(disclose(id))));
+    sendUnshielded(nativeToken(), 100000, right<ContractAddress, UserAddress>(treasury));
+  } else {
+    sendUnshielded(nativeToken(), 1000000, right<ContractAddress, UserAddress>(creator.lookup(disclose(id))));
+    sendUnshielded(nativeToken(), 1000000, right<ContractAddress, UserAddress>(challenger.lookup(disclose(id))));
+  }
+}
