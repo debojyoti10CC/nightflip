@@ -51,6 +51,18 @@ export default function Duel() {
     return () => window.clearInterval(timer);
   }, [session, room]);
 
+  useEffect(() => {
+    if (room) return;
+    const choose = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      const index = Number(event.key) - 1;
+      if (index >= 0 && index < moves.length && event.key.length === 1) setPick(moves[index]);
+    };
+    window.addEventListener('keydown', choose);
+    return () => window.removeEventListener('keydown', choose);
+  }, [room]);
+
   const refresh = useCallback(async () => {
     if (!session || !room) return;
     try {
@@ -133,11 +145,11 @@ export default function Duel() {
       <div className="duel-sky"><div className="duel-sun">✳</div><div className="duel-battle"><div><span>PLAYER 01</span><b>{room ? 'LOCKED IN' : 'YOU'}</b><i>◆ ◆ ◆</i></div><strong>VS</strong><div><span>PLAYER 02</span><b>{room?.rivalJoined ? 'LOCKED IN' : 'UNKNOWN'}</b><i>{room?.rivalJoined ? '◆ ◆ ◆' : '? ? ?'}</i></div></div><div className="duel-skyline" /></div>
       <div className="duel-body">
         {!room ? <>
-          <div className="duel-heading"><div><span className="eyebrow">01 / PICK YOUR POWER</span><h2>THREE MOVES. <em>ONE RIVAL.</em></h2></div><span className="duel-private"><LockKeyhole size={15} /> HIDDEN UNTIL REVEAL</span></div>
+          <div className="duel-heading"><div><span className="eyebrow">01 / PICK YOUR POWER</span><h2>THREE MOVES. <em>ONE RIVAL.</em></h2><small className="duel-shortcut">TIP: PRESS 1 / 2 / 3 TO CHOOSE</small></div><span className="duel-private"><LockKeyhole size={15} /> HIDDEN UNTIL REVEAL</span></div>
           <div className="duel-moves">{moves.map((move) => <button key={move} className={`duel-move ${pick === move ? 'chosen' : ''}`} onClick={() => setPick(move)} aria-pressed={pick === move}><span className="duel-move-icon">{icons[move]}</span><strong>{move}</strong><small>{rules[move]}</small>{pick === move && <span className="duel-check"><Check size={17} /></span>}</button>)}</div>
           <div className="duel-route"><div><span className="eyebrow">02 / CHOOSE YOUR ROUTE</span><p>Create a room and send the link, or enter a rival's code. Each player locks 1 demo credit.</p></div><div className="duel-route-buttons"><button className="button button-lime" onClick={() => void lock(false)} disabled={!pick || !session || busy}><Users size={17} /> CREATE DUEL</button><div className="duel-join"><input aria-label="Invite code" placeholder="INVITE CODE" value={invite} maxLength={8} onChange={(e) => setInvite(e.target.value.toUpperCase().replace(/[^A-F0-9]/g, ''))} /><button onClick={() => void lock(true)} disabled={!pick || invite.length !== 8 || !session || busy}>JOIN <ArrowRight size={15} /></button></div></div></div>
           <div className="duel-open"><div><span className="eyebrow">LIVE BOARD / OPEN ROOMS</span><small>{openRooms.length ? `${openRooms.length} RIVAL${openRooms.length === 1 ? '' : 'S'} WAITING` : 'NO ROOMS YET — CREATE THE FIRST'}</small></div>{openRooms.length > 0 && <div className="duel-open-list">{openRooms.slice(0, 4).map((item) => <button key={item.code} onClick={() => void lock(true, item.code)} disabled={!pick || busy}><span>ROOM {item.code}</span><strong>JOIN RIVAL →</strong></button>)}</div>}</div>
-        </> : <div className="duel-progress">
+        </> : <div className="duel-progress" role="status" aria-live="polite">
           {room.state === 'WAITING' ? <><span className="eyebrow">02 / INVITE A RIVAL</span><h2>YOUR MOVE IS <em>LOCKED.</em></h2><p>Share this link with a friend. Their pick stays hidden too. Your 1.00 demo credit is held until they join or the timer ends.</p><div className="invite-box"><strong>{room.code}</strong><button className="button button-lime" onClick={() => void copyInvite()}>{copied ? <Check size={18} /> : <Clipboard size={18} />}{copied ? 'COPIED' : 'COPY INVITE LINK'}</button></div><small>WAITING FOR PLAYER 02 • {secondsLeft}s LEFT</small></> : null}
           {room.state === 'REVEAL' ? <><span className="eyebrow">03 / COMMITMENTS ARE SEALED</span><h2>{room.myMove ? 'MOVE REVEALED.' : 'SHOW YOUR HAND.'}</h2><p>{room.myMove ? 'Your move is verified. Waiting for your rival to reveal.' : 'Both players locked a move. Reveal yours now; the winner is decided only after both reveals.'}</p><div className="duel-status-grid"><div><span>YOU</span><b>{room.myMove || 'HIDDEN'}</b></div><div><span>RIVAL</span><b>{room.rivalRevealed ? 'REVEALED' : 'HIDDEN'}</b></div></div>{!room.myMove && <button className="button button-lime" onClick={() => void reveal()} disabled={busy}><Zap size={19} /> REVEAL MY MOVE</button>}<small>REVEAL WINDOW • {secondsLeft}s LEFT</small></> : null}
           {(room.state === 'DONE' || room.state === 'CANCELLED') && <><span className="eyebrow">04 / THE NIGHT HAS SPOKEN</span><h2>{resultTitle}</h2><p>{room.result === 'TIE' || room.result === 'BOTH_REFUNDED' || room.result === 'NO_OPPONENT' ? 'Stake refunded to your demo balance.' : room.winner === 'YOU' ? '+1.90 demo credits added to your balance.' : 'Your rival won this round. Try a new move.'}</p><div className="duel-status-grid"><div><span>YOU PLAYED</span><b>{room.myMove || 'UNREVEALED'}</b></div><div><span>RIVAL PLAYED</span><b>{room.rivalMove || 'UNREVEALED'}</b></div></div><button className="button button-lime" onClick={newDuel}>PLAY AGAIN <RotateCcw size={17} /></button></>}
