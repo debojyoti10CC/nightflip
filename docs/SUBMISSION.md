@@ -19,7 +19,7 @@ Prepare a CSV with `wallet_address,network,first_participation_tx,contract_addre
 
 ## Deployment gates
 
-1. Resolve and review the Compact compiler soundness advisory recorded in `NETWORK.md`; recompile and retest with a safe official version.
+1. Resolve the current mismatch between the Preprod tested compiler (0.31.1) and the compiler soundness advisory's affected-version metadata (through 0.31.1), recorded in `NETWORK.md`; recompile and retest with a safe compatible official version.
 2. Bind the Preprod wallet address to the participant and test native-token transaction in a real client.
 3. Provision and verify the Preprod prover, indexer, funded operator wallet, faucet guidance, and DUST sponsorship.
 4. Run real transaction tests for winning claim, losing claim rejection, timeout refund, duel tie, and duel forfeit; record explorer links.

@@ -1,28 +1,33 @@
 # Midnight Preprod compatibility snapshot
 
-Checked 23 September 2026 against the [official Midnight SDK compatibility matrix](https://github.com/midnightntwrk/midnight-sdk/blob/main/COMPATIBILITY.md) and the current [official Bulletin Board](https://github.com/midnightntwrk/example-bboard) and [Private Party](https://github.com/midnightntwrk/example-private-party) examples. Recheck before deployment because version and network state can change.
+Checked 23 September 2026 against the current [official Preprod compatibility matrix](https://docs.midnight.network/relnotes/support-matrix), [official endpoints](https://docs.midnight.network/relnotes/network), and the [Compact compiler advisory](https://github.com/LFDT-Minokawa/compact/security/advisories/GHSA-3p6x-5vpx-wwpj). Recheck before deployment because versions and network state can change.
 
-| Component | Official stable version |
+| Component | Official Preprod tested version |
 | --- | --- |
 | Compact toolchain | 0.5.1 |
-| Compact compiler | 0.30.0 |
-| Compact language | 0.22.0 |
-| compact-js | 2.5.0 |
-| compact-runtime | 0.15.0 |
-| Midnight.js packages | 4.0.4 |
-| wallet-sdk-facade | 3.0.0 |
+| Compact compiler | 0.31.1 |
+| Compact language | 0.23 |
+| compact-js | 2.5.1 |
+| compact-runtime | 0.16.0 |
+| Midnight.js packages | 4.1.1 |
+| Wallet SDK | 1.2.0 |
 | dapp-connector-api | 4.0.1 |
-| ledger-v8 | 8.0.3 |
+| Preprod node | 1.0.3 |
+| Preprod indexer | 4.3.302 |
+| Proof server | 8.1.0 |
 
-The matrix above currently lags the source examples. The working **contract development lock** for NightFlip is Compact toolchain 0.5.1, compiler 0.31.0, language 0.23, compact-runtime 0.16.0, and Midnight.js network-id 4.1.1. The official Bulletin Board contract compiled with compiler 0.31.0 in WSL; NightFlip then compiled with the same compiler and passed simulator tests. This proves local compatibility, not Preprod transaction compatibility. The latter is a checkpoint 4 gate.
+The working **local development lock** remains compiler 0.31.0, language 0.23, compact-runtime 0.16.0, and Midnight.js network-id 4.1.1. Both NightFlip contracts compile and pass simulator tests. This proves local development behavior, not Preprod transaction compatibility or proof-system soundness.
+
+**Deployment gate:** the advisory's affected-version metadata covers compiler versions through 0.31.1. The official Preprod matrix currently lists 0.31.1, while the newer 0.34.0 compiler targets a different ledger generation according to its [release notes](https://docs.midnight.network/relnotes/compact/toolchain-0.34.0). Do not deploy these contracts until the official toolchain support and advisory status are reconciled, a compatible fixed compiler is available, and generated verifier keys are reviewed. This is a network/toolchain issue; test funds alone cannot clear it.
 
 Preprod endpoints from the same matrix:
 
 - Node RPC: `https://rpc.preprod.midnight.network`
-- Indexer: `https://indexer.preprod.midnight.network`
-- Proof server: `https://lace-proof-pub.preprod.midnight.network`
-- Faucet: `https://faucet.preprod.midnight.network`
-- Explorer: `https://explorer.preprod.midnight.network`
+- Indexer GraphQL: `https://indexer.preprod.midnight.network/api/v4/graphql`
+- Faucet UI: `https://midnight-tmnight-preprod.nethermind.dev/`
+- Explorer: `https://preprod.midnightexplorer.com/`
+
+Use the connected Lace wallet's reported prover URI for its supported proof service rather than hardcoding a URL here.
 
 The [official Private Party example](https://github.com/midnightntwrk/example-private-party) provides native NIGHT deposit/payout and DUST sponsorship patterns. The [official Bulletin Board example](https://github.com/midnightntwrk/example-bboard) provides a React/Lace DApp structure. Their repository versions must be checked against this matrix before copying implementation details.
 
