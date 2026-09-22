@@ -15,6 +15,8 @@
 
 Local simulator tests prove Compact state transitions and expected unshielded transfer effects. They do not prove real wallet balancing, fee sponsorship or Preprod settlement. Those require funded test wallets and a deployed contract in checkpoint 4.
 
+Compiler 0.31.x has a [reported range-constraint advisory](https://github.com/LFDT-Minokawa/compact/security/advisories/GHSA-3p6x-5vpx-wwpj) for a particular conditional and unconditional cast pattern. NightFlip does not intentionally use that pattern, but generated circuits and the toolchain must be reviewed again before any deployment. Simulator tests alone do not establish proof-system soundness.
+
 `registerPlayer` binds a public address to a secret-derived key, but the Compact circuit alone cannot prove that the registrant controls the stated unshielded wallet address. The wallet/transaction layer and evidence exporter must verify the address-to-transaction relationship before a row counts toward the 70-user target. No user count is claimed at this stage.
 
 Operator secrets and player secrets must remain outside public analytics and Git. Salts must be generated with a secure RNG and never reused.
