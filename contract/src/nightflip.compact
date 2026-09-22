@@ -1,0 +1,202 @@
+pragma language_version 0.23;
+
+import CompactStandardLibrary;
+
+// Amounts are STAR, the atomic unit of NIGHT. 1 NIGHT = 1,000,000 STAR.
+
+export enum RoundState { OPEN, CLOSED, REVEALED }
+export enum BetState { ACTIVE, CLAIMED, REFUNDED }
+
+export struct Round {
+  commitment: Bytes<32>,
+  seed: Bytes<32>,
+  outcome: Boolean,
+  state: RoundState,
+  closeAt: Uint<64>,
+  revealBy: Uint<64>,
+  betCount: Uint<16>
+}
+
+export struct Bet {
+  roundId: Uint<64>,
+  player: UserAddress,
+  ownerKey: Bytes<32>,
+  choiceCommitment: Bytes<32>,
+  state: BetState
+}
+
+export ledger operatorKey: Bytes<32>;
+export ledger paused: Boolean;
+export ledger latestRoundId: Uint<64>;
+export ledger nextBetId: Uint<64>;
+export ledger rounds: Map<Uint<64>, Round>;
+export ledger bets: Map<Uint<64>, Bet>;
+export ledger players: Map<UserAddress, Bytes<32>>;
+export ledger playerCount: Counter;
+export ledger betCount: Counter;
+export ledger reservedPayout: Uint<128>;
+
+constructor(operatorSecret: Bytes<32>) {
+  operatorKey = disclose(keyOf(operatorSecret));
+  paused = false;
+  latestRoundId = 0;
+  nextBetId = 1;
+  reservedPayout = 0;
+}
+
+export circuit keyOf(secret: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "nightflip:key:v1"), secret]);
+}
+
+export circuit roundCommit(roundId: Uint<64>, seed: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<3, Bytes<32>>>([
+    pad(32, "nightflip:round:v1"),
+    roundId as Field as Bytes<32>,
+    seed
+  ]);
+}
+
+export circuit choiceCommit(choice: Boolean, salt: Bytes<32>, ownerKey: Bytes<32>, roundId: Uint<64>): Bytes<32> {
+  return persistentCommit<Vector<4, Bytes<32>>>([
+    pad(32, "nightflip:choice:v1"),
+    (choice as Uint<8>) as Field as Bytes<32>,
+    ownerKey,
+    roundId as Field as Bytes<32>
+  ], salt);
+}
+
+export circuit outcomeOf(roundId: Uint<64>, seed: Bytes<32>): Boolean {
+  const digest = persistentHash<Vector<3, Bytes<32>>>([
+    pad(32, "nightflip:outcome:v1"),
+    roundId as Field as Bytes<32>,
+    seed
+  ]);
+  return (digest[0] as Uint<8>) >= 128;
+}
+
+export circuit registerPlayer(address: UserAddress, playerSecret: Bytes<32>): [] {
+  assert(!players.member(disclose(address)), "Player already registered");
+  players.insert(disclose(address), disclose(keyOf(playerSecret)));
+  playerCount.increment(1);
+}
+
+export circuit openRound(commitment: Bytes<32>, closeAt: Uint<64>, revealBy: Uint<64>, operatorSecret: Bytes<32>): [] {
+  assert(keyOf(operatorSecret) == operatorKey, "Operator only");
+  assert(!paused, "Game is paused");
+  if (latestRoundId > 0) {
+    assert(rounds.lookup(latestRoundId).state != RoundState.OPEN, "Previous round is open");
+  }
+  assert(closeAt < revealBy, "Invalid reveal deadline");
+  assert(blockTimeLt(disclose(closeAt)), "Close time must be in the future");
+  const id = (latestRoundId + 1) as Uint<64>;
+  rounds.insert(id, Round {
+    commitment: disclose(commitment),
+    seed: pad(32, ""),
+    outcome: false,
+    state: RoundState.OPEN,
+    closeAt: disclose(closeAt),
+    revealBy: disclose(revealBy),
+    betCount: 0
+  });
+  latestRoundId = id;
+}
+
+export circuit closeRound(roundId: Uint<64>, operatorSecret: Bytes<32>): [] {
+  assert(keyOf(operatorSecret) == operatorKey, "Operator only");
+  assert(rounds.member(disclose(roundId)), "Unknown round");
+  const round = rounds.lookup(disclose(roundId));
+  assert(round.state == RoundState.OPEN, "Round is not open");
+  rounds.insert(disclose(roundId), Round {
+    commitment: round.commitment, seed: round.seed, outcome: round.outcome,
+    state: RoundState.CLOSED, closeAt: round.closeAt, revealBy: round.revealBy,
+    betCount: round.betCount
+  });
+}
+
+export circuit revealRound(roundId: Uint<64>, seed: Bytes<32>, operatorSecret: Bytes<32>): [] {
+  assert(keyOf(operatorSecret) == operatorKey, "Operator only");
+  assert(rounds.member(disclose(roundId)), "Unknown round");
+  const round = rounds.lookup(disclose(roundId));
+  assert(round.state == RoundState.CLOSED, "Round is not closed");
+  assert(blockTimeLt(round.revealBy), "Reveal deadline passed");
+  assert(roundCommit(roundId, seed) == round.commitment, "Seed does not match commitment");
+  rounds.insert(disclose(roundId), Round {
+    commitment: round.commitment, seed: disclose(seed), outcome: disclose(outcomeOf(roundId, seed)),
+    state: RoundState.REVEALED, closeAt: round.closeAt, revealBy: round.revealBy,
+    betCount: round.betCount
+  });
+}
+
+export circuit placeBet(address: UserAddress, roundId: Uint<64>, choice: Boolean, salt: Bytes<32>, playerSecret: Bytes<32>): Uint<64> {
+  assert(!paused, "Game is paused");
+  assert(players.member(disclose(address)), "Player is not registered");
+  const key = keyOf(playerSecret);
+  assert(players.lookup(disclose(address)) == key, "Wrong player secret");
+  assert(key != operatorKey, "Operator cannot bet");
+  assert(rounds.member(disclose(roundId)), "Unknown round");
+  const round = rounds.lookup(disclose(roundId));
+  assert(round.state == RoundState.OPEN, "Round is not open");
+  assert(blockTimeLt(round.closeAt), "Betting deadline passed");
+  assert(round.betCount < 20, "Round is full");
+  receiveUnshielded(nativeToken(), 1000000);
+  assert(unshieldedBalanceGte(nativeToken(), (reservedPayout + 1900000) as Uint<128>), "Bankroll too low");
+  const id = nextBetId;
+  bets.insert(id, Bet {
+    roundId: disclose(roundId), player: disclose(address), ownerKey: disclose(key),
+    choiceCommitment: disclose(choiceCommit(choice, salt, key, roundId)), state: BetState.ACTIVE
+  });
+  rounds.insert(disclose(roundId), Round {
+    commitment: round.commitment, seed: round.seed, outcome: round.outcome,
+    state: round.state, closeAt: round.closeAt, revealBy: round.revealBy,
+    betCount: (round.betCount + 1) as Uint<16>
+  });
+  nextBetId = (id + 1) as Uint<64>;
+  reservedPayout = (reservedPayout + 1900000) as Uint<128>;
+  betCount.increment(1);
+  return id;
+}
+
+export circuit claimWin(betId: Uint<64>, choice: Boolean, salt: Bytes<32>, playerSecret: Bytes<32>): [] {
+  assert(bets.member(disclose(betId)), "Unknown bet");
+  const bet = bets.lookup(disclose(betId));
+  assert(bet.state == BetState.ACTIVE, "Bet already settled");
+  const key = keyOf(playerSecret);
+  assert(bet.ownerKey == key, "Wrong player secret");
+  assert(bet.choiceCommitment == choiceCommit(choice, salt, key, bet.roundId), "Wrong choice or salt");
+  const round = rounds.lookup(bet.roundId);
+  assert(round.state == RoundState.REVEALED, "Round not revealed");
+  assert(choice == round.outcome, "Losing bet");
+  assert(unshieldedBalanceGte(nativeToken(), 1900000), "Bankroll too low");
+  bets.insert(disclose(betId), Bet {
+    roundId: bet.roundId, player: bet.player, ownerKey: bet.ownerKey,
+    choiceCommitment: bet.choiceCommitment, state: BetState.CLAIMED
+  });
+  reservedPayout = (reservedPayout - 1900000) as Uint<128>;
+  sendUnshielded(nativeToken(), 1900000, right<ContractAddress, UserAddress>(bet.player));
+}
+
+export circuit refundExpired(betId: Uint<64>, playerSecret: Bytes<32>): [] {
+  assert(bets.member(disclose(betId)), "Unknown bet");
+  const bet = bets.lookup(disclose(betId));
+  assert(bet.state == BetState.ACTIVE, "Bet already settled");
+  assert(bet.ownerKey == keyOf(playerSecret), "Wrong player secret");
+  const round = rounds.lookup(bet.roundId);
+  assert(round.state != RoundState.REVEALED, "Round was revealed");
+  assert(blockTimeGte(round.revealBy), "Reveal deadline not reached");
+  bets.insert(disclose(betId), Bet {
+    roundId: bet.roundId, player: bet.player, ownerKey: bet.ownerKey,
+    choiceCommitment: bet.choiceCommitment, state: BetState.REFUNDED
+  });
+  reservedPayout = (reservedPayout - 1900000) as Uint<128>;
+  sendUnshielded(nativeToken(), 1000000, right<ContractAddress, UserAddress>(bet.player));
+}
+
+export circuit setPaused(value: Boolean, operatorSecret: Bytes<32>): [] {
+  assert(keyOf(operatorSecret) == operatorKey, "Operator only");
+  paused = disclose(value);
+}
+
+export circuit fundBankroll(amount: Uint<128>): [] {
+  assert(amount > 0, "Amount must be positive");
+  receiveUnshielded(nativeToken(), disclose(amount));
+}
