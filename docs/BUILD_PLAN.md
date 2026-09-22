@@ -1,6 +1,6 @@
 # Build plan
 
-This plan translates the supplied NightFlip PRD into six reviewable checkpoints. The user requested a pause after each checkpoint.
+This plan translates the supplied NightFlip PRD into six reviewable checkpoints. The user later requested completion without checkpoint pauses and asked for a deeper multiplayer game.
 
 ## Product contract
 
@@ -17,10 +17,10 @@ This plan translates the supplied NightFlip PRD into six reviewable checkpoints.
 | --- | --- | --- |
 | 1 | Repo scaffold, requirements summary, compatibility snapshot | Files and host prerequisites checked |
 | 2 | Compiled Compact contract and state-transition tests | **Complete:** local simulator tests cover loss, double claim, timeout, pause and bankroll |
-| 3 | Full 90s-style browser game, including a clearly labeled local demo mode | Browser playthrough at desktop and mobile widths |
-| 4 | Real Preprod wallet and transaction path | Funded test wallet playthrough and explorer links |
-| 5 | Operator/sponsor controls, feedback, metrics and evidence export | Abuse and privacy checks; real verified rows only |
-| 6 | QA, CI, docs, live demo preparation | Build and end-to-end evidence review |
+| 3 | **Complete:** 90s-style browser game, solo flip and two-browser Night Duel demo | Local browser playthrough and production build |
+| 4 | **Partial:** Lace Preprod connector handshake; contract transaction path awaits network setup | Funded test wallet playthrough and explorer links |
+| 5 | **In progress:** feedback service, beta operation and verified-user evidence | Real feedback and real verified rows only |
+| 6 | **In progress:** QA, CI, docs and live demo preparation | Build and end-to-end evidence review |
 
 ## Inputs needed later
 
@@ -32,4 +32,4 @@ Bold late-90s arcade interface: dark indigo night room, electric violet and acid
 
 ## Scope decisions
 
-Implement one game only. No variable wagers, casino lobby, NFTs, multiplayer, real-money path or mainnet configuration. Treat the PRD as a specification, not as instructions to bypass verification or invent adoption evidence.
+Keep Solo Flip as the original MVP and add Night Duel as a separate head-to-head mode. No variable wagers, NFTs, real-money path or mainnet configuration. Treat the PRD as a specification, not as instructions to bypass verification or invent adoption evidence.
