@@ -121,12 +121,28 @@ function App() {
   const [walletError, setWalletError] = useState('');
   const [error, setError] = useState('');
   const busy = useRef(false);
+  const audio = useRef<AudioContext | null>(null);
 
   useEffect(() => { saveDemo(save); }, [save]);
 
   const roundId = (save.rounds[0]?.id ?? 0) + 1;
   const wins = save.rounds.filter((round) => round.won).length;
   const updateSave = (next: DemoSave) => { setSave(next); saveDemo(next); };
+  const tone = (frequency: number, duration = 0.12) => {
+    if (!sound) return;
+    try {
+      const context = audio.current ?? (audio.current = new AudioContext());
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(frequency, context.currentTime);
+      gain.gain.setValueAtTime(0.025, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + duration);
+    } catch { /* Audio is optional if browser policy blocks it. */ }
+  };
 
   const flip = async () => {
     if (busy.current || !selection || save.balance < 1) return;
@@ -134,16 +150,19 @@ function App() {
     setError('');
     try {
       setPhase('committing');
+      tone(330);
       const chosen = selection;
       const prepared = await prepareDemoRound(roundId);
       updateSave({ ...save, balance: Math.round((save.balance - 1) * 100) / 100 });
       await delay(650);
       setPhase('flipping');
+      tone(440, 0.18);
       await delay(2300);
       const round = await resolveDemoRound(roundId, chosen, prepared.seed, prepared.commitment);
       updateSave({ balance: Math.round((save.balance - 1) * 100) / 100, rounds: [round, ...save.rounds] });
       setActiveRound(round);
       setPhase('result');
+      tone(round.won ? 660 : 220, 0.3);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The demo flip failed. Try again.');
       setPhase('idle');
@@ -154,6 +173,7 @@ function App() {
     if (!activeRound?.won || activeRound.claimed) return;
     const updated = { ...activeRound, claimed: true };
     setActiveRound(updated);
+    tone(880, 0.2);
     updateSave({ balance: Math.round((save.balance + 1.9) * 100) / 100, rounds: save.rounds.map((round) => round.id === updated.id ? updated : round) });
   };
 
