@@ -1,6 +1,6 @@
-# NightFlip contract
+# NightFlip contracts
 
-`src/nightflip.compact` is the game's on-chain core. Compiler 0.31.0 / language 0.23 generates nine transaction circuits and four pure helpers.
+`src/nightflip.compact` is the Solo Flip on-chain core. Compiler 0.31.0 / language 0.23 generates nine transaction circuits and four pure helpers. `src/nightduel.compact` adds a separate two-player protocol with five transaction circuits and three pure helpers.
 
 ## Rules
 
@@ -20,3 +20,9 @@ Compiler 0.31.x has a [reported range-constraint advisory](https://github.com/LF
 `registerPlayer` binds a public address to a secret-derived key, but the Compact circuit alone cannot prove that the registrant controls the stated unshielded wallet address. The wallet/transaction layer and evidence exporter must verify the address-to-transaction relationship before a row counts toward the 70-user target. No user count is claimed at this stage.
 
 Operator secrets and player secrets must remain outside public analytics and Git. Salts must be generated with a secure RNG and never reused.
+
+## Night Duel
+
+The duel contract uses Moon = 0, Shadow = 1, Star = 2. Moon beats Star, Star beats Shadow, and Shadow beats Moon. Both players deposit 1,000,000 STAR and commit hidden moves bound to their private keys and duel ID. A decisive settlement sends 1,900,000 STAR to the winner and 100,000 STAR to the treasury address set during deployment. A tie sends 1,000,000 STAR to each. The creator can refund an unmatched duel after the join deadline. After the reveal deadline, anyone may settle: one revealer wins by forfeit and zero revealers are both refunded. A completed duel cannot settle twice.
+
+The browser demo uses SHA-256 commitments and simulated credits; it is separate from this Compact protocol. The on-chain client, deployment, wallet ownership binding, payout-destination proof, and full Preprod playthrough are outstanding. See [duel trust model](../docs/DUEL.md).
