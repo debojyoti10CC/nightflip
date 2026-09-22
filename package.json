@@ -5,7 +5,10 @@
   "description": "Midnight Preprod private coin-flip game",
   "workspaces": ["app", "contract", "services/*"],
   "scripts": {
-    "check": "node scripts/check-foundation.mjs"
+    "check": "node scripts/check-foundation.mjs",
+    "dev": "node scripts/dev.mjs",
+    "build": "npm run build -w @nightflip/app",
+    "test": "npm test -w @nightflip/contract && npm test -w @nightflip/duel-service"
   },
   "engines": {
     "node": ">=22.15.0"
