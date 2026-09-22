@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { DuelGame } from './game.mjs';
+import { validateFeedback } from './feedback.mjs';
 
 const game = new DuelGame();
 const port = Number(process.env.PORT || 8787);
@@ -50,15 +51,10 @@ createServer(async (req, res) => {
       const key = req.socket.remoteAddress || 'local';
       const recent = (feedbackRate.get(key) || []).filter((time) => Date.now() - time < 60_000);
       if (recent.length >= 5) return send(res, 429, { error: 'Please wait before sending more feedback.' });
-      const body = await bodyOf(req);
-      if (!Number.isInteger(body.rating) || body.rating < 1 || body.rating > 5 ||
-          typeof body.category !== 'string' || body.category.length > 80 ||
-          typeof body.message !== 'string' || body.message.length > 1000 ||
-          !['solo', 'duel'].includes(body.mode)) return send(res, 400, { error: 'Invalid feedback.' });
+      const body = validateFeedback(await bodyOf(req));
       feedbackRate.set(key, [...recent, Date.now()]);
       await mkdir(dirname(feedbackFile), { recursive: true });
-      await appendFile(feedbackFile, JSON.stringify({ at: new Date().toISOString(), rating: body.rating,
-        category: body.category, message: body.message, mode: body.mode }) + '\n');
+      await appendFile(feedbackFile, JSON.stringify({ at: new Date().toISOString(), ...body }) + '\n');
       return send(res, 200, { saved: true }, req.headers.origin);
     }
     if (parts[0] !== 'api' || parts[1] !== 'duel') return send(res, 404, { error: 'Not found.' });
