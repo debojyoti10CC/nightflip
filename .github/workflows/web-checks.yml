@@ -1,0 +1,22 @@
+name: Web and room checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npm test -w @nightflip/duel-service
+      # Contract tests require the Compact compiler and generated ignored outputs.
+      # Run `npm run compile -w @nightflip/contract && npm test -w @nightflip/contract`
+      # in the documented WSL/Linux release gate before deployment.
