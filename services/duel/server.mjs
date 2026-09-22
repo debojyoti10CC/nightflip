@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, extname, resolve, sep } from 'node:path';
 import { DuelGame } from './game.mjs';
 import { validateFeedback } from './feedback.mjs';
 
@@ -10,6 +10,9 @@ const host = process.env.HOST || '127.0.0.1';
 const appOrigin = process.env.APP_ORIGIN || '';
 const feedbackFile = process.env.FEEDBACK_FILE || resolve(import.meta.dirname, '../../data/feedback.jsonl');
 const stateFile = process.env.DUEL_STATE_FILE || resolve(import.meta.dirname, '../../data/duel-state.json');
+const staticDir = process.env.STATIC_DIR ? resolve(process.env.STATIC_DIR) : '';
+const mimeType = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
 const feedbackRate = new Map();
 try { game.restore(JSON.parse(await readFile(stateFile, 'utf8'))); }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -36,6 +39,20 @@ const bodyOf = async (req) => {
   }
   try { return JSON.parse(raw || '{}'); } catch { throw Object.assign(new Error('Invalid JSON.'), { status: 400 }); }
 };
+const serveStatic = async (url, res) => {
+  const assetPath = url.pathname.startsWith('/assets/') ? url.pathname.slice(1) : 'index.html';
+  const path = resolve(staticDir, assetPath);
+  if (!path.startsWith(`${staticDir}${sep}`)) return send(res, 404, { error: 'Not found.' });
+  try {
+    const file = await readFile(path);
+    res.writeHead(200, { 'content-type': mimeType[extname(path)] || 'application/octet-stream',
+      'x-content-type-options': 'nosniff', 'cache-control': assetPath === 'index.html' ? 'no-cache' : 'public, max-age=31536000, immutable' });
+    return res.end(file);
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'EISDIR') return send(res, 404, { error: 'Not found.' });
+    throw error;
+  }
+};
 
 createServer(async (req, res) => {
   try {
@@ -57,7 +74,10 @@ createServer(async (req, res) => {
       await appendFile(feedbackFile, JSON.stringify({ at: new Date().toISOString(), ...body }) + '\n');
       return send(res, 200, { saved: true }, req.headers.origin);
     }
-    if (parts[0] !== 'api' || parts[1] !== 'duel') return send(res, 404, { error: 'Not found.' });
+    if (parts[0] !== 'api' || parts[1] !== 'duel') {
+      if (staticDir && req.method === 'GET' && parts[0] !== 'api') return await serveStatic(url, res);
+      return send(res, 404, { error: 'Not found.' });
+    }
     if (req.method === 'POST' && parts.length === 3 && parts[2] === 'session') { const result = game.newPlayer(); await saveGame(); return send(res, 200, result, req.headers.origin); }
     const bearer = req.headers.authorization?.match(/^Bearer ([a-f0-9]{48})$/)?.[1];
     if (!bearer) return send(res, 401, { error: 'Start a demo session first.' });

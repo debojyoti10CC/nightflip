@@ -14,8 +14,8 @@
 | | |
 | --- | --- |
 | **Repository** | [github.com/debojyoti10CC/nightflip](https://github.com/debojyoti10CC/nightflip) |
-| **Playable demo** | Run locally at `http://127.0.0.1:5173/` using the commands below; public deployment pending |
-| **Demo video** | Pending |
+| **Playable demo** | Run locally at `http://127.0.0.1:5173/` using the commands below; container and public deployment steps in [the runbook](docs/DEPLOY.md) |
+| **Browser demo video** | [Watch the two-player and Solo Flip recording](docs/video/nightflip-browser-demo.mp4); Preprod transaction footage pending |
 | **Preprod participant wallets** | 0 collected or verified for this game; 70 genuine on-chain participants required for the stated submission goal |
 | **Contract address** | None; neither Compact contract is deployed |
 | **Feedback record** | [Collection process and decision log](docs/FEEDBACK.md) |
@@ -169,13 +169,15 @@ The stated Level 5 target includes the extended MVP, 70 verified Preprod users, 
 | Live demo link | Local UI and room service only | Pending public hosting |
 | 70 verifiable Preprod wallet addresses | No genuine cohort evidence collected | Pending |
 | Funded Preprod contract use | No deployment or game transactions | Pending |
-| Full MVP demo video | No video published | Pending |
+| Full MVP demo video | [Browser demo recording](docs/video/nightflip-browser-demo.mp4) covers multiplayer, Solo Flip, and fairness | Preprod transaction footage pending |
 
 The repository does not substitute simulated sessions, unrelated wallet lists, or invented transaction IDs for submission evidence.
 
 ## 10. Technology stack and repository structure
 
 **Frontend:** React 19, TypeScript 5.9, Vite 7, CSS, Lucide icons. **Multiplayer:** Node.js room service with JSON state and feedback storage. **Protocol:** Midnight Compact contracts and simulator tests. **Verification:** Web Crypto SHA-256 in the browser and a Node proof checker. **CI:** GitHub Actions for foundation, web build, and room service checks; Compact checks run separately with the Linux toolchain.
+
+The [single-origin Docker build](docs/DEPLOY.md) serves the compiled UI and room API together and requires a private persistent volume for public hosting.
 
 ```text
 nightflip/
