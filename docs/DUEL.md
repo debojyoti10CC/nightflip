@@ -14,6 +14,8 @@ Both players commit before either reveals. Equal moves tie. The fixed stake is 1
 
 The room service in `services/duel` connects two browsers through an invite code. A browser generates a 32-byte random salt and sends `SHA-256("nightflip-duel-v1:" + move + ":" + salt)` before reveal. The service never receives the move or salt during commitment. At reveal, it checks the hash. Both hashes and salts are displayed for independent browser verification after completion. Sessions and rooms are persisted to the local ignored data directory. Credits are simulated and can be reset by starting a new session; they have no token value.
 
+After a completed duel, save the proof JSON from the result panel and run `npm run proof:verify -- <path-to-proof.json>` to check both commitments and the winner outside the browser. Solo Flip exports a compatible demo proof through its fairness panel. This checker deliberately rejects unknown protocols and does not claim on-chain verification.
+
 This is a centralized service, so the server can see moves as they are revealed and controls demo settlement. Its proof shows that the revealed moves match the earlier hashes; it is not a zero-knowledge or on-chain proof. The API must run behind HTTPS with one configured allowed origin for a public demo.
 
 ## Compact contract

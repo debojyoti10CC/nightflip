@@ -9,7 +9,8 @@
     "dev": "node scripts/dev.mjs",
     "build": "npm run build -w @nightflip/app",
     "test": "npm test -w @nightflip/contract && npm test -w @nightflip/duel-service",
-    "feedback:summary": "node scripts/feedback-summary.mjs"
+    "feedback:summary": "node scripts/feedback-summary.mjs",
+    "proof:verify": "node scripts/verify-proof.mjs"
   },
   "engines": {
     "node": ">=22.15.0"
