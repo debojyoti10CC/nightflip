@@ -4,6 +4,8 @@
 
 The game has an in-app rating and message form with categories for strategy, multiplayer connection, clarity, visuals, fairness, wallet onboarding, and performance. The local service validates and appends feedback to ignored `data/feedback.jsonl`. If the service is unavailable, the browser stores a local fallback and clearly says so. Do not include wallet addresses or private details in free text. The project owner should review feedback weekly, group repeated issues, record decisions here, and link the commit that changed the game.
 
+Run `npm run feedback:summary` to count responses and average ratings by mode/category without printing free-text messages. Review individual messages privately in the service data file before writing a public issue or decision log entry.
+
 ## Decision log
 
 | Date | Source | Feedback | Decision | Evidence |

@@ -8,7 +8,8 @@
     "check": "node scripts/check-foundation.mjs",
     "dev": "node scripts/dev.mjs",
     "build": "npm run build -w @nightflip/app",
-    "test": "npm test -w @nightflip/contract && npm test -w @nightflip/duel-service"
+    "test": "npm test -w @nightflip/contract && npm test -w @nightflip/duel-service",
+    "feedback:summary": "node scripts/feedback-summary.mjs"
   },
   "engines": {
     "node": ">=22.15.0"
