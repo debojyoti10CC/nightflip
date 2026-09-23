@@ -13,6 +13,8 @@ Open `http://127.0.0.1:8787/` and check `http://127.0.0.1:8787/api/health`. The 
 
 For a public demo, use a host that builds this Dockerfile, provides HTTPS, runs one persistent instance, and mounts a **private persistent volume at `/app/data`**. Expose container port `8787`; use `/api/health` as the health check. Store and back up the volume privately because it contains anonymous session bearer tokens and user-written feedback. Keep the UI's **DEMO MODE** disclosure visible.
 
+The current public demo is [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com). It runs the same single-origin Docker image on Render's free plan. The URL, UI, `/api/health`, and a two-browser room were checked on 23 September 2026. The plan spins down while idle and has an ephemeral filesystem, so it is suitable for review of the demo but not for retaining room state or collecting durable beta feedback. Attach a persistent disk on a paid service, or move state and feedback to a managed datastore, before a real beta.
+
 ## Separate UI and API hosts
 
 1. Provision an HTTPS host for the UI and a Node 24 host for `services/duel/server.mjs`. Put the API behind an HTTPS reverse proxy. Configure `HOST`, `PORT`, `DUEL_STATE_FILE`, and `FEEDBACK_FILE` using private, writable paths. Keep the state and feedback files out of the published static directory and back them up privately. Leave `STATIC_DIR` unset for API-only hosting.

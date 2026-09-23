@@ -6,7 +6,7 @@ This document separates completed code from evidence that requires real Preprod 
 | --- | --- | --- |
 | Level 4 MVP extended | Solo Flip UI and Compact protocol; added two-player Night Duel UI, room service, and Compact protocol | Funded Preprod end-to-end demonstration |
 | Public GitHub repository | [debojyoti10CC/nightflip](https://github.com/debojyoti10CC/nightflip), public `main` branch | Keep release documentation current |
-| Live demo link | Local `http://127.0.0.1:5173/` and tested single-origin Docker build | Host the container over HTTPS with a private persistent volume; record public URL |
+| Live demo link | [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com), built from the public repository and verified with two browser sessions | Move to persistent storage before collecting beta feedback; Render's free filesystem is ephemeral |
 | 70 verifiable Preprod wallets | None collected | 70 genuine wallet addresses, consent, and per-address on-chain participation evidence |
 | Feedback loop | [feedback process and first decision](FEEDBACK.md); in-app form and service | Real beta feedback, decisions, retests, and links to changes |
 | Updated documentation | README, network, build, contract, duel, feedback, this checklist | Update after actual deployment and beta |

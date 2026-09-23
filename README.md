@@ -14,7 +14,7 @@
 | | |
 | --- | --- |
 | **Repository** | [github.com/debojyoti10CC/nightflip](https://github.com/debojyoti10CC/nightflip) |
-| **Playable demo** | Run locally at `http://127.0.0.1:5173/` using the commands below; container and public deployment steps in [the runbook](docs/DEPLOY.md) |
+| **Playable demo** | [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com) — public simulated-credit demo with multiplayer rooms |
 | **Browser demo video** | [Watch the two-player and Solo Flip recording](docs/video/nightflip-browser-demo.mp4); Preprod transaction footage pending |
 | **Preprod participant wallets** | 0 collected or verified for this game; 70 genuine on-chain participants required for the stated submission goal |
 | **Contract address** | None; neither Compact contract is deployed |
@@ -166,7 +166,7 @@ The stated Level 5 target includes the extended MVP, 70 verified Preprod users, 
 | Updated documentation | README and linked technical/release documents | Complete for current local build |
 | Feedback loop | In-app form and [decision log](docs/FEEDBACK.md) | Documented; beta follow-up pending |
 | 30 meaningful commits | Scoped history on `main`; inspect with `git log --oneline` | Met |
-| Live demo link | Local UI and room service only | Pending public hosting |
+| Live demo link | [Public HTTPS demo](https://nightflip-arcade.onrender.com), independently checked with a two-browser room | Complete for the simulated-credit build |
 | 70 verifiable Preprod wallet addresses | No genuine cohort evidence collected | Pending |
 | Funded Preprod contract use | No deployment or game transactions | Pending |
 | Full MVP demo video | [Browser demo recording](docs/video/nightflip-browser-demo.mp4) covers multiplayer, Solo Flip, and fairness | Preprod transaction footage pending |
