@@ -5,17 +5,14 @@ import {
   Sparkles, Star, Users, Volume2, VolumeX, Wallet, X,
 } from 'lucide-react';
 import {
-  loadDemo, prepareDemoRound, resetDemo, resolveDemoRound, saveDemo,
+  loadDemo, saveDemo,
   verifyDemoRound, type DemoRound, type DemoSave, type Side,
 } from './game/demo';
-import Duel from './Duel';
 import './duel.css';
-import { connectPreprodWallet, type WalletInfo } from './wallet/lace';
+import { connectPreprodWallet, hasPreprodWallet, type WalletInfo } from './wallet/lace';
 
 type Phase = 'idle' | 'committing' | 'flipping' | 'result';
 type Panel = 'how' | 'fairness' | 'feedback' | 'wallet' | null;
-
-const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
 function SideMark({ side, size = 36 }: { side: Side; size?: number }) {
   if (side === 'MOON') return <MoonStar size={size} strokeWidth={1.8} />;
@@ -50,7 +47,7 @@ function FairnessPanel({ round, onClose }: { round?: DemoRound; onClose: () => v
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   return <Modal title="FAIRNESS CHECK" onClose={onClose}>
-    <p className="modal-lede">Each demo round locks a random seed behind a commitment before the coin flips. After the flip, the seed is revealed so you can reproduce the result.</p>
+    <p className="modal-lede">Each NightFlip contract round locks a seed commitment before bets open. After close, the operator reveals the seed and anyone can reproduce the public outcome.</p>
     {round ? <>
       <div className="proof-list">
         <div><span>ROUND ID</span><strong>#{String(round.id).padStart(3, '0')}</strong></div>
@@ -62,8 +59,8 @@ function FairnessPanel({ round, onClose }: { round?: DemoRound; onClose: () => v
       <button className="button button-lime modal-action" onClick={check}><ShieldCheck size={17} /> VERIFY THIS ROUND</button>
       <button className="button button-outline modal-action" onClick={download}><Download size={17} /> SAVE PROOF JSON</button>
       {verified !== null && <p className={verified ? 'verify-good' : 'verify-bad'}>{verified ? '✓ Commitment and result verified in your browser.' : 'Verification failed. This demo round may have been altered.'}</p>}
-    </> : <div className="empty-proof"><ShieldCheck size={33} /><p>Flip once to reveal the first proof record.</p></div>}
-    <p className="modal-footnote">Demo hashes use browser SHA-256. The Preprod contract uses Midnight Compact persistent hashes and zero-knowledge proofs. Demo credits are local and have no token value.</p>
+    </> : <div className="empty-proof"><ShieldCheck size={33} /><p>No revealed Preprod round is available in this browser yet.</p></div>}
+    <p className="modal-footnote">The Preprod contract uses Midnight Compact persistent hashes and zero-knowledge proofs. This screen will show a real round receipt only after a contract is deployed and a round settles.</p>
   </Modal>;
 }
 
@@ -108,7 +105,7 @@ function FeedbackPanel({ mode, onClose }: { mode: 'solo' | 'duel'; onClose: () =
 }
 
 function App() {
-  const [mode, setMode] = useState<'duel' | 'solo'>('duel');
+  const [mode, setMode] = useState<'duel' | 'solo'>('solo');
   const [save, setSave] = useState<DemoSave>(loadDemo);
   const [selection, setSelection] = useState<Side | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -119,14 +116,17 @@ function App() {
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState('');
+  const contractAddress = (import.meta.env.VITE_NIGHTFLIP_CONTRACT_ADDRESS || '').trim();
+  const preprodPlayable = Boolean(walletInfo && contractAddress);
+  const walletDetected = hasPreprodWallet();
   const [error, setError] = useState('');
-  const busy = useRef(false);
   const audio = useRef<AudioContext | null>(null);
+  const musicTimer = useRef<number | null>(null);
 
   useEffect(() => { saveDemo(save); }, [save]);
 
-  const roundId = (save.rounds[0]?.id ?? 0) + 1;
-  const wins = save.rounds.filter((round) => round.won).length;
+  const displayedRounds = contractAddress ? save.rounds : [];
+  const wins = displayedRounds.filter((round) => round.won).length;
   const updateSave = (next: DemoSave) => { setSave(next); saveDemo(next); };
   const tone = (frequency: number, duration = 0.12) => {
     if (!sound) return;
@@ -144,29 +144,45 @@ function App() {
     } catch { /* Audio is optional if browser policy blocks it. */ }
   };
 
+  useEffect(() => {
+    if (!sound) return;
+    const context = audio.current ?? (audio.current = new AudioContext());
+    const notes = [110, 146.83, 164.81, 146.83, 123.47, 164.81, 196, 164.81];
+    let step = 0;
+    const playPulse = () => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = step % 4 === 0 ? 'triangle' : 'sine';
+      oscillator.frequency.setValueAtTime(notes[step % notes.length], context.currentTime);
+      gain.gain.setValueAtTime(0.0001, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.028, context.currentTime + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.42);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.45);
+      step += 1;
+    };
+    void context.resume().then(() => {
+      playPulse();
+      musicTimer.current = window.setInterval(playPulse, 460);
+    });
+    return () => {
+      if (musicTimer.current !== null) window.clearInterval(musicTimer.current);
+      musicTimer.current = null;
+    };
+  }, [sound]);
+
   const flip = async () => {
-    if (busy.current || !selection || save.balance < 1) return;
-    busy.current = true;
-    setError('');
-    try {
-      setPhase('committing');
-      tone(330);
-      const chosen = selection;
-      const prepared = await prepareDemoRound(roundId);
-      updateSave({ ...save, balance: Math.round((save.balance - 1) * 100) / 100 });
-      await delay(650);
-      setPhase('flipping');
-      tone(440, 0.18);
-      await delay(2300);
-      const round = await resolveDemoRound(roundId, chosen, prepared.seed, prepared.commitment);
-      updateSave({ balance: Math.round((save.balance - 1) * 100) / 100, rounds: [round, ...save.rounds] });
-      setActiveRound(round);
-      setPhase('result');
-      tone(round.won ? 660 : 220, 0.3);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'The demo flip failed. Try again.');
-      setPhase('idle');
-    } finally { busy.current = false; }
+    if (!walletInfo) {
+      setPanel('wallet');
+      setError('Connect a Midnight Preprod wallet before you place a stake.');
+      return;
+    }
+    if (!contractAddress) {
+      setError('NightFlip is waiting for its Preprod contract address. No stake can be submitted until deployment is complete.');
+      return;
+    }
+    setError('The contract address is configured, but the live circuit client has not been enabled in this build. No transaction was submitted.');
   };
 
   const claim = () => {
@@ -178,7 +194,6 @@ function App() {
   };
 
   const playAgain = () => { setSelection(null); setActiveRound(null); setPhase('idle'); setError(''); };
-  const restart = () => { updateSave(resetDemo()); playAgain(); setPanel(null); };
   const connectWallet = async () => {
     setWalletBusy(true); setWalletError('');
     try { setWalletInfo(await connectPreprodWallet()); }
@@ -186,7 +201,7 @@ function App() {
     finally { setWalletBusy(false); }
   };
 
-  const buttonLabel = phase === 'committing' ? 'LOCKING YOUR PICK…' : phase === 'flipping' ? 'FLIPPING THE NIGHT…' : 'FLIP FOR 1 tNIGHT';
+  const buttonLabel = !walletInfo ? 'CONNECT PREPROD WALLET' : !contractAddress ? 'PREPROD CONTRACT PENDING' : phase === 'committing' ? 'LOCKING YOUR PICK…' : phase === 'flipping' ? 'FLIPPING THE NIGHT…' : 'STAKE 1 tNIGHT';
 
   return <div className="site-shell">
     <div className="scanlines" aria-hidden="true" />
@@ -195,71 +210,69 @@ function App() {
     <header className="site-header">
       <div className="brand" aria-label="NightFlip home"><span className="brand-emblem"><span>✦</span></span><span className="brand-name">NIGHT<span>FLIP</span><small>MOON OR NOTHING</small></span></div>
       <nav className={mobileMenu ? 'main-nav open' : 'main-nav'} aria-label="Main navigation">
-        <button className="nav-link active" onClick={() => { setMode('duel'); setMobileMenu(false); }}>THE GAME</button>
+        <button className="nav-link active" onClick={() => { setMode('solo'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMobileMenu(false); }}>THE GAME</button>
         <button className="nav-link" onClick={() => { setPanel('how'); setMobileMenu(false); }}>HOW TO PLAY</button>
         <button className="nav-link" onClick={() => { setPanel('fairness'); setMobileMenu(false); }}>FAIRNESS</button>
         <button className="nav-link" onClick={() => { setPanel('feedback'); setMobileMenu(false); }}>FEEDBACK</button>
       </nav>
-      <div className="header-actions"><span className="demo-tag"><span /> DEMO MODE</span><button className="wallet-button" onClick={() => setPanel('wallet')}><Wallet size={17} /> {walletInfo ? 'LACE CONNECTED' : 'CONNECT WALLET'} <ArrowDownRight size={16} /></button><button className="menu-button" aria-label="Open menu" onClick={() => setMobileMenu(!mobileMenu)}><Menu size={23} /></button></div>
+      <div className="header-actions"><span className="demo-tag"><span /> PREPROD MODE</span><button className="wallet-button" onClick={() => setPanel('wallet')}><Wallet size={17} /> {walletInfo ? 'LACE CONNECTED' : 'CONNECT WALLET'} <ArrowDownRight size={16} /></button><button className="menu-button" aria-label="Open menu" onClick={() => setMobileMenu(!mobileMenu)}><Menu size={23} /></button></div>
     </header>
 
     <main>
       <section className="intro-strip"><div><span className="intro-kicker"><span className="intro-star">✳</span> WELCOME TO THE AFTER HOURS</span><h1>{mode === 'duel' ? <>OUTSMART A RIVAL.<br /><em>OWN THE NIGHT.</em></> : <>CALL THE COIN.<br /><em>CHASE THE NIGHT.</em></>}</h1><p>{mode === 'duel' ? 'Three hidden moves. One real opponent. Your call.' : 'One private pick. One fixed stake. One moment of truth.'}</p></div><div className="intro-stamp"><span>THE MIDNIGHT</span><strong>ARCADE</strong><span>EST. 199X</span></div></section>
 
-      <div className="mode-switch" role="tablist" aria-label="Game modes"><button role="tab" aria-selected={mode === 'duel'} className={mode === 'duel' ? 'active' : ''} onClick={() => setMode('duel')}><Users size={18} /> NIGHT DUEL <small>2 PLAYERS</small></button><button role="tab" aria-selected={mode === 'solo'} className={mode === 'solo' ? 'active' : ''} onClick={() => setMode('solo')}><MoonStar size={18} /> SOLO FLIP <small>CLASSIC MODE</small></button></div>
-
-      {mode === 'duel' ? <Duel /> : <div className="game-layout">
+      <div className="game-layout">
         <section className="game-frame" aria-label="NightFlip game">
-          <div className="frame-top"><div className="frame-heading"><span className="frame-symbol">✦</span> THE NIGHT ROOM <span className="frame-sub">// MAIN EVENT</span></div><div className="frame-controls"><span className="round-status"><span /> ROUND #{String(roundId).padStart(3, '0')}</span><button className="small-icon" onClick={() => setSound(!sound)} aria-label={sound ? 'Mute sound' : 'Enable sound'} title={sound ? 'Mute sound' : 'Enable sound'}>{sound ? <Volume2 size={16} /> : <VolumeX size={16} />}</button></div></div>
+          <div className="frame-top"><div className="frame-heading"><span className="frame-symbol">✦</span> THE NIGHT ROOM <span className="frame-sub">// PREPROD TABLE</span></div><div className="frame-controls"><span className="round-status"><span /> {contractAddress ? `CONTRACT ${contractAddress.slice(0, 8)}…` : 'CONTRACT NOT DEPLOYED'}</span><button className="small-icon sound-toggle" onClick={() => setSound(!sound)} aria-label={sound ? 'Mute arcade music' : 'Play arcade music'} title={sound ? 'Mute arcade music' : 'Play arcade music'}>{sound ? <><Volume2 size={16} /><small>SOUND ON</small></> : <><VolumeX size={16} /><small>SOUND OFF</small></>}</button></div></div>
 
           <div className="night-room">
             <div className="room-grid" /><div className="starfield" aria-hidden="true">{Array.from({ length: 34 }, (_, index) => <i key={index} style={{ left: `${(index * 37 + 13) % 100}%`, top: `${(index * 19 + 7) % 65}%`, animationDelay: `${(index % 7) * .4}s` }} />)}</div>
             <div className="horizon" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
-            <div className="room-label label-left">⚡ PRIVATE PICK</div><div className="room-label label-right">50<span>/</span>50 ODDS</div>
+            <div className="room-label label-left">⚡ PRIVATE PICK</div><div className="room-label label-right">1<span>.</span>00 tNIGHT</div>
             <div className="orbit orbit-one" /><div className="orbit orbit-two" />
             <div className="coin-stage"><div className={`coin ${phase === 'flipping' ? 'coin-flipping' : ''} ${phase === 'result' && activeRound?.outcome === 'SHADOW' ? 'coin-shadow-result' : ''}`}>
               <div className="coin-face coin-front"><div className="coin-face-inner"><MoonStar size={86} strokeWidth={1.2} /><span>MOON</span></div></div>
               <div className="coin-face coin-back"><div className="coin-face-inner"><SideMark side="SHADOW" size={86} /><span>SHADOW</span></div></div>
             </div><div className="coin-halo" /></div>
             <div className="room-floor" />
-            <div className="room-bottom-label">{phase === 'idle' ? 'PICK A SIDE TO BEGIN' : phase === 'committing' ? 'YOUR CHOICE IS LOCKED' : phase === 'flipping' ? 'FATE IS IN MOTION' : activeRound?.won ? 'THE NIGHT IS YOURS' : 'THE NIGHT CHOSE OTHERWISE'}</div>
+            <div className="room-bottom-label">{!walletInfo ? 'CONNECT LACE TO UNLOCK THE TABLE' : !contractAddress ? 'CONTRACT DEPLOYMENT REQUIRED' : phase === 'idle' ? 'PICK A SIDE TO BEGIN' : phase === 'committing' ? 'YOUR CHOICE IS LOCKED' : phase === 'flipping' ? 'FATE IS IN MOTION' : activeRound?.won ? 'THE NIGHT IS YOURS' : 'THE NIGHT CHOSE OTHERWISE'}</div>
           </div>
 
           <div className="play-area">
-            <div className="play-heading"><div><span className="eyebrow">01 / MAKE YOUR CALL</span><h2>MOON <span>OR</span> SHADOW?</h2></div><div className="private-note"><LockKeyhole size={15} /> YOUR PICK STAYS PRIVATE</div></div>
+            <div className="play-heading"><div><span className="eyebrow">01 / MAKE YOUR CALL</span><h2>MOON <span>OR</span> SHADOW?</h2></div><div className={preprodPlayable ? 'private-note ready' : 'private-note'}><LockKeyhole size={15} /> {preprodPlayable ? 'PREPROD TABLE READY' : 'PRIVATE PICK • PREPROD SETUP'}</div></div>
             <div className="side-options">
               {(['MOON', 'SHADOW'] as Side[]).map((side) => <button key={side} type="button" className={`side-card ${side.toLowerCase()} ${selection === side ? 'selected' : ''}`} aria-pressed={selection === side} onClick={() => phase === 'idle' && setSelection(side)} disabled={phase !== 'idle'}>
                 <span className="side-card-icon"><SideMark side={side} size={38} /></span><span className="side-card-copy"><span className="side-card-name">{side}</span><span className="side-card-description">{side === 'MOON' ? 'Follow the light' : 'Trust the dark'}</span></span><span className="side-card-check">{selection === side ? <Check size={18} /> : '○'}</span>
               </button>)}
             </div>
             <div className="action-row">
-              {phase === 'result' ? <div className="result-actions"><div className={`result-callout ${activeRound?.won ? 'win' : 'loss'}`}><span>{activeRound?.won ? '✦ WINNER WINNER' : '✳ ROUND COMPLETE'}</span><strong>{activeRound?.won ? '+1.90 tNIGHT' : `${activeRound?.outcome} WON`}</strong><small>{activeRound?.won ? 'Demo payout ready to claim' : 'Your 1 tNIGHT demo stake was spent'}</small></div><div className="result-buttons">{activeRound?.won && !activeRound.claimed && <button className="button button-lime" onClick={claim}><Coins size={19} /> CLAIM 1.90</button>}<button className="button button-outline" onClick={playAgain}>PLAY AGAIN <RotateCcw size={17} /></button></div></div> : <><button className="button button-lime flip-button" onClick={flip} disabled={!selection || phase !== 'idle' || save.balance < 1}>{phase === 'idle' ? <span className="flip-spark">✦</span> : <span className="spinner" />}{buttonLabel}<ArrowRight size={21} /></button><div className="stake-note"><strong>FIXED STAKE</strong><span>1.00 tNIGHT <span className="dot-divide">•</span> WIN 1.90</span></div></>}
+              {phase === 'result' ? <div className="result-actions"><div className={`result-callout ${activeRound?.won ? 'win' : 'loss'}`}><span>{activeRound?.won ? '✦ WINNER WINNER' : '✳ ROUND COMPLETE'}</span><strong>{activeRound?.won ? '+1.90 tNIGHT' : `${activeRound?.outcome} WON`}</strong><small>{activeRound?.won ? 'Demo payout ready to claim' : 'Your 1 tNIGHT demo stake was spent'}</small></div><div className="result-buttons">{activeRound?.won && !activeRound.claimed && <button className="button button-lime" onClick={claim}><Coins size={19} /> CLAIM 1.90</button>}<button className="button button-outline" onClick={playAgain}>PLAY AGAIN <RotateCcw size={17} /></button></div></div> : <><button className="button button-lime flip-button" onClick={flip} disabled={phase !== 'idle' || (preprodPlayable && !selection)}>{phase === 'idle' ? <span className="flip-spark">✦</span> : <span className="spinner" />}{buttonLabel}<ArrowRight size={21} /></button><div className="stake-note"><strong>FIXED PREPROD STAKE</strong><span>1.00 tNIGHT <span className="dot-divide">•</span> WIN 1.90</span></div></>}
             </div>
             {error && <p className="inline-error" role="alert">{error}</p>}
-            {save.balance < 1 && phase === 'idle' && <div className="low-credits">Demo credits exhausted. <button onClick={restart}>Reset your demo session</button> to play again.</div>}
+            {walletInfo && !contractAddress && phase === 'idle' && <div className="low-credits">Wallet connected. The game will unlock after the NightFlip Preprod contract is deployed and its address is configured.</div>}
           </div>
-          <div className="frame-footer"><span><ShieldCheck size={15} /> COMMITTED ROUND SEED</span><span><LockKeyhole size={15} /> HIDDEN PLAYER CHOICE</span><span><Sparkles size={15} /> TESTNET ONLY</span></div>
+          <div className="frame-footer"><span><ShieldCheck size={15} /> COMMITTED ROUND SEED</span><span><LockKeyhole size={15} /> HIDDEN PLAYER CHOICE</span><span><Sparkles size={15} /> PREPROD ONLY</span></div>
         </section>
 
         <aside className="sidebar">
-          <section className="panel wallet-panel"><div className="panel-head"><span>PLAYER TERMINAL</span><span className="panel-dot">● ● ●</span></div><div className="wallet-top"><div className="avatar-badge">✦</div><div><span className="eyebrow">CURRENT SESSION</span><strong>ARCADE GUEST</strong></div><span className="online-pill">ONLINE</span></div><div className="balance-box"><span>DEMO CREDIT BALANCE</span><strong>{save.balance.toFixed(2)} <small>tNIGHT</small></strong><div className="balance-bars"><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /></div></div><div className="wallet-meta"><span><Coins size={15} /> FIXED BET <strong>1.00</strong></span><span><Sparkles size={15} /> WIN PAYS <strong>1.90</strong></span></div><p className="panel-disclaimer">Local demo credits only. No wallet, blockchain transaction, or real token balance is connected.</p></section>
+          <section className="panel wallet-panel"><div className="panel-head"><span>PLAYER TERMINAL</span><span className="panel-dot">● ● ●</span></div><div className="wallet-top"><div className="avatar-badge">✦</div><div><span className="eyebrow">WALLET SESSION</span><strong>{walletInfo ? walletInfo.walletName : 'NOT CONNECTED'}</strong></div><span className={walletInfo ? 'online-pill' : 'online-pill offline'}>{walletInfo ? 'PREPROD' : 'OFFLINE'}</span></div><div className="balance-box"><span>{walletInfo ? 'PREPROD WALLET' : 'WALLET REQUIRED'}</span><strong>{walletInfo ? `${walletInfo.unshieldedAddress.slice(0, 10)}…${walletInfo.unshieldedAddress.slice(-6)}` : 'CONNECT'} <small>{walletInfo ? 'ADDRESS' : 'LACE'}</small></strong><div className="balance-bars"><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /></div></div><div className="wallet-meta"><span><Coins size={15} /> FIXED BET <strong>1.00</strong></span><span><Sparkles size={15} /> WIN PAYS <strong>1.90</strong></span></div><p className="panel-disclaimer">{walletInfo ? `DUST available: ${walletInfo.dustBalance.toString()} / ${walletInfo.dustCap.toString()} raw units. Contract calls remain disabled until the deployed address is set.` : 'Connect Lace on Midnight Preprod. The wallet keeps all authorization and private keys.'}</p></section>
 
-          <section className="panel stats-panel"><div className="panel-head"><span>YOUR AFTER-HOURS STATS</span><History size={15} /></div><div className="stats-grid"><div><span>ROUNDS PLAYED</span><strong>{String(save.rounds.length).padStart(2, '0')}</strong></div><div><span>WINS</span><strong>{String(wins).padStart(2, '0')}</strong></div></div><div className="history-head"><span>RECENT FLIPS</span><button onClick={restart} title="Reset demo session">RESET <RotateCcw size={12} /></button></div><div className="history-list">{save.rounds.length ? save.rounds.slice(0, 4).map((round) => <button className="history-item" key={round.id} onClick={() => { setActiveRound(round); setPanel('fairness'); }}><span className={`history-symbol ${round.outcome.toLowerCase()}`}><SideMark side={round.outcome} size={18} /></span><span><strong>ROUND #{String(round.id).padStart(3, '0')}</strong><small>{round.choice} PICK</small></span><em className={round.won ? 'won' : 'lost'}>{round.won ? 'WON' : 'LOST'}</em></button>) : <div className="history-empty">NO FLIPS YET <span>✦</span><small>Your story starts with one call.</small></div>}</div></section>
+          <section className="panel stats-panel"><div className="panel-head"><span>YOUR PREPROD ACTIVITY</span><History size={15} /></div><div className="stats-grid"><div><span>ROUNDS PLAYED</span><strong>{String(displayedRounds.length).padStart(2, '0')}</strong></div><div><span>WINS</span><strong>{String(wins).padStart(2, '0')}</strong></div></div><div className="history-head"><span>RECENT SETTLEMENTS</span><span className="eyebrow">ON-CHAIN</span></div><div className="history-list">{displayedRounds.length ? displayedRounds.slice(0, 4).map((round) => <button className="history-item" key={round.id} onClick={() => { setActiveRound(round); setPanel('fairness'); }}><span className={`history-symbol ${round.outcome.toLowerCase()}`}><SideMark side={round.outcome} size={18} /></span><span><strong>ROUND #{String(round.id).padStart(3, '0')}</strong><small>{round.choice} PICK</small></span><em className={round.won ? 'won' : 'lost'}>{round.won ? 'WON' : 'LOST'}</em></button>) : <div className="history-empty">NO SETTLEMENTS YET <span>✦</span><small>Your first confirmed Preprod bet will appear here.</small></div>}</div></section>
 
           <button className="fairness-card" onClick={() => setPanel('fairness')}><span className="fairness-icon"><ShieldCheck size={27} /></span><span><strong>FAIR PLAY,<br />NO GUESSWORK.</strong><small>See how the coin is locked before you play.</small><b>EXPLORE FAIRNESS <ArrowRight size={14} /></b></span></button>
         </aside>
-      </div>}
+      </div>
 
-      <section className="how-strip"><div><span className="eyebrow">{mode === 'duel' ? 'THE DUEL FLOW' : 'THE RULES ARE SIMPLE'}</span><h2>THREE MOVES.<br /><em>ONE FATE.</em></h2></div>{mode === 'duel' ? <><div className="rule"><span>01</span><MoonStar size={27} /><strong>CHOOSE & COMMIT</strong><p>Pick Moon, Shadow, or Star. Only a salted hash reaches the room service.</p></div><div className="rule"><span>02</span><Users size={29} /><strong>BRING A RIVAL</strong><p>Share the room link. Both players lock one demo credit before any reveal.</p></div><div className="rule"><span>03</span><ShieldCheck size={29} /><strong>REVEAL & VERIFY</strong><p>Both moves are checked against their commitments. Winner gets 1.90; ties refund both.</p></div></> : <><div className="rule"><span>01</span><SideMark side="MOON" size={27} /><strong>CHOOSE A SIDE</strong><p>Moon or Shadow. Your choice stays hidden behind a commitment.</p></div><div className="rule"><span>02</span><Coins size={29} /><strong>LOCK YOUR STAKE</strong><p>One fixed test stake. No bet sliders, no surprises.</p></div><div className="rule"><span>03</span><Sparkles size={29} /><strong>REVEAL & CLAIM</strong><p>Watch the flip, verify the seed, and claim if you win.</p></div></>}</section>
+      <section className="how-strip"><div><span className="eyebrow">{mode === 'duel' ? 'THE DUEL FLOW' : 'THE RULES ARE SIMPLE'}</span><h2>THREE MOVES.<br /><em>ONE FATE.</em></h2></div>{mode === 'duel' ? <><div className="rule"><span>01</span><MoonStar size={27} /><strong>CHOOSE & COMMIT</strong><p>Pick Moon, Shadow, or Star. Only a salted hash reaches the room service.</p></div><div className="rule"><span>02</span><Users size={29} /><strong>BRING A RIVAL</strong><p>Share the room link. Both players lock one demo credit before any reveal.</p></div><div className="rule"><span>03</span><ShieldCheck size={29} /><strong>REVEAL & VERIFY</strong><p>Both moves are checked against their commitments. Winner gets 1.90; ties refund both.</p></div></> : <><div className="rule"><span>01</span><SideMark side="MOON" size={27} /><strong>CHOOSE A SIDE</strong><p>Moon or Shadow. Your choice stays hidden behind a commitment.</p></div><div className="rule"><span>02</span><Coins size={29} /><strong>LOCK YOUR STAKE</strong><p>One fixed test stake enters the NightFlip contract. No bet sliders, no surprises.</p></div><div className="rule"><span>03</span><Sparkles size={29} /><strong>REVEAL & CLAIM</strong><p>Watch the coin, verify the revealed seed, then claim on-chain if you win.</p></div></>}</section>
       <section className="closing-banner"><span>✦</span><p>THE NIGHT IS YOUNG. <strong>{mode === 'duel' ? 'WHO WILL OWN THE ROOM?' : "WHAT'S YOUR CALL?"}</strong></p><button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>BACK TO TOP ↑</button></section>
     </main>
 
     <footer className="site-footer"><div className="brand footer-brand"><span className="brand-emblem"><span>✦</span></span><span className="brand-name">NIGHT<span>FLIP</span></span></div><p>BUILT FOR MIDNIGHT PREPROD. FREE TEST TOKENS. ZERO REAL-WORLD VALUE.</p><div><button onClick={() => setPanel('how')}>HOW TO PLAY</button><button onClick={() => setPanel('feedback')}>FEEDBACK</button><span>© 2026 NIGHTFLIP</span></div></footer>
 
-    {panel === 'how' && <Modal title="HOW TO PLAY" onClose={() => setPanel(null)}><div className="how-modal">{mode === 'duel' ? <><div><b>01</b><h3>LOCK A HIDDEN MOVE</h3><p>Moon beats Star, Star beats Shadow, Shadow beats Moon. Your browser hashes your move with a fresh random salt before joining the room.</p></div><div><b>02</b><h3>INVITE A RIVAL</h3><p>Share the room link. A second browser locks a move and one simulated demo credit. Neither player sees the other's choice.</p></div><div><b>03</b><h3>BOTH REVEAL</h3><p>Each player reveals their move and salt. The service checks both commitments. A tie refunds both stakes.</p></div><div><b>04</b><h3>SETTLE OR TIME OUT</h3><p>The winner receives 1.90 simulated credits. If a rival fails to reveal in time, the revealing player wins; if neither reveals, both are refunded.</p></div></> : <><div><b>01</b><h3>MAKE A PRIVATE PICK</h3><p>Choose Moon or Shadow. Your choice and random salt form a commitment. The public game sees the commitment, not your side.</p></div><div><b>02</b><h3>LOCK 1 tNIGHT</h3><p>Every bet is exactly 1 test tNIGHT. In this demo, credits are simulated locally; the Preprod flow uses the Midnight contract.</p></div><div><b>03</b><h3>REVEAL THE SEED</h3><p>A seed is committed before bets open and revealed afterward. The outcome is derived from that seed and can be checked independently.</p></div><div><b>04</b><h3>CLAIM OR REFUND</h3><p>A correct guess wins 1.90 test tNIGHT. If a real Preprod round misses its reveal deadline, the contract allows a refund.</p></div></>}</div><button className="button button-lime modal-action" onClick={() => setPanel(null)}>LET'S PLAY <ArrowRight size={17} /></button></Modal>}
+    {panel === 'how' && <Modal title="HOW TO PLAY" onClose={() => setPanel(null)}><div className="how-modal">{mode === 'duel' ? <><div><b>01</b><h3>LOCK A HIDDEN MOVE</h3><p>Moon beats Star, Star beats Shadow, Shadow beats Moon. Your browser hashes your move with a fresh random salt before joining the room.</p></div><div><b>02</b><h3>INVITE A RIVAL</h3><p>Share the room link. A second browser locks a move and one simulated demo credit. Neither player sees the other's choice.</p></div><div><b>03</b><h3>BOTH REVEAL</h3><p>Each player reveals their move and salt. The service checks both commitments. A tie refunds both stakes.</p></div><div><b>04</b><h3>SETTLE OR TIME OUT</h3><p>The winner receives 1.90 simulated credits. If a rival fails to reveal in time, the revealing player wins; if neither reveals, both are refunded.</p></div></> : <><div><b>01</b><h3>MAKE A PRIVATE PICK</h3><p>Choose Moon or Shadow. Your choice and random salt form a commitment. The public game sees the commitment, not your side.</p></div><div><b>02</b><h3>LOCK 1 tNIGHT</h3><p>Every bet is exactly 1 test tNIGHT and is recorded by the NightFlip Preprod contract.</p></div><div><b>03</b><h3>REVEAL THE SEED</h3><p>A seed is committed before bets open and revealed afterward. The outcome is derived from that seed and can be checked independently.</p></div><div><b>04</b><h3>CLAIM OR REFUND</h3><p>A correct guess wins 1.90 test tNIGHT. If a real Preprod round misses its reveal deadline, the contract allows a refund.</p></div></>}</div><button className="button button-lime modal-action" onClick={() => setPanel(null)}>LET'S PLAY <ArrowRight size={17} /></button></Modal>}
     {panel === 'fairness' && (mode === 'duel' ? <Modal title="DUEL FAIRNESS" onClose={() => setPanel(null)}><p className="modal-lede">Both players commit a salted SHA-256 hash before revealing. The room service checks each move and salt against its hash. After a completed duel, the game shows both hashes and salts so either browser can verify them.</p><div className="how-modal"><div><b>01</b><h3>LOCKED BEFORE REVEAL</h3><p>The second player cannot see the first move when choosing. A 32-byte random salt makes guessing a hidden move from its hash impractical.</p></div><div><b>02</b><h3>OPEN RESULT</h3><p>Moon beats Star; Star beats Shadow; Shadow beats Moon. Matching moves refund both stakes.</p></div></div><p className="modal-footnote">This browser duel is a centralized demo with simulated credits. Its room service and hashes are not on Midnight Preprod yet.</p></Modal> : <FairnessPanel round={activeRound ?? save.rounds[0]} onClose={() => setPanel(null)} />)}
     {panel === 'feedback' && <FeedbackPanel mode={mode} onClose={() => setPanel(null)} />}
-    {panel === 'wallet' && <Modal title="ENTER THE NIGHT" onClose={() => setPanel(null)}><p className="modal-lede">Connect a Lace Midnight wallet to check Preprod readiness. Gameplay remains a simulated demo until the contracts, proof service, and transaction flow are deployed.</p><div className="wallet-options"><div className="wallet-option active"><div><span className="wallet-option-icon">✦</span><span><strong>PLAY LOCAL DEMO</strong><small>Instant play • simulated credits</small></span></div><Check size={19} /></div><div className="wallet-option"><div><span className="wallet-option-icon"><Wallet size={20} /></span><span><strong>{walletInfo ? 'LACE CONNECTED TO PREPROD' : 'CONNECT LACE ON PREPROD'}</strong><small>{walletInfo ? `${walletInfo.coinPublicKey.slice(0, 15)}…${walletInfo.coinPublicKey.slice(-8)}` : 'Wallet discovery and network handshake only'}</small></span></div>{walletInfo ? <Check size={19} /> : <button className="wallet-connect-action" onClick={() => void connectWallet()} disabled={walletBusy}>{walletBusy ? 'CONNECTING…' : 'CONNECT'}</button>}</div></div>{walletError && <p className="inline-error" role="alert">{walletError}</p>}{walletInfo && <p className="verify-good">Preprod connector ready. No game transaction has been submitted.</p>}<button className="button button-lime modal-action" onClick={() => setPanel(null)}>CONTINUE IN DEMO <ArrowRight size={17} /></button><p className="modal-footnote">Never enter a wallet seed phrase into this page. Official Preprod wallet authorization stays in Lace.</p></Modal>}
+    {panel === 'wallet' && <Modal title="ENTER THE NIGHT" onClose={() => setPanel(null)}><p className="modal-lede">Connect a Lace Midnight wallet on Preprod. NightFlip reads your address, wallet network and DUST status locally; it never asks for a seed phrase.</p><div className="wallet-options"><div className="wallet-option active"><div><span className="wallet-option-icon">✦</span><span><strong>CONNECT ON PREPROD</strong><small>Wallet authorization stays in Lace</small></span></div><Check size={19} /></div><div className="wallet-option"><div><span className="wallet-option-icon"><Wallet size={20} /></span><span><strong>{walletInfo ? 'LACE CONNECTED TO PREPROD' : 'CONNECT LACE ON PREPROD'}</strong><small>{walletInfo ? `${walletInfo.shieldedCoinPublicKey.slice(0, 15)}…${walletInfo.shieldedCoinPublicKey.slice(-8)}` : walletDetected ? 'Compatible Lace wallet detected' : 'Install or enable Lace Midnight first'}</small></span></div>{walletInfo ? <Check size={19} /> : <button className="wallet-connect-action" onClick={() => void connectWallet()} disabled={walletBusy}>{walletBusy ? 'CONNECTING…' : 'CONNECT'}</button>}</div></div>{walletError && <p className="inline-error" role="alert">{walletError}</p>}{walletInfo && <p className="verify-good">Preprod wallet connected and validated. Contract interaction unlocks after the on-chain deployment address is configured.</p>}<button className="button button-lime modal-action" onClick={() => setPanel(null)}>RETURN TO TABLE <ArrowRight size={17} /></button><p className="modal-footnote">Never enter a wallet seed phrase into this page. Official Preprod wallet authorization stays in Lace.</p></Modal>}
   </div>;
 }
 

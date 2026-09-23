@@ -1,24 +1,57 @@
-type WalletConnection = {
-  getConnectionStatus(): Promise<unknown>;
-  getConfiguration(): Promise<{ indexerUri: string; proverServerUri?: string }>;
-  getShieldedAddresses(): Promise<{ shieldedCoinPublicKey: string }>;
+import type { ConnectedAPI, InitialAPI } from '@midnight-ntwrk/dapp-connector-api';
+
+export type WalletInfo = {
+  walletName: string;
+  unshieldedAddress: string;
+  shieldedCoinPublicKey: string;
+  indexerUri: string;
+  nodeUri: string;
+  proofServerUri: string | null;
+  dustBalance: bigint;
+  dustCap: bigint;
+  connected: ConnectedAPI;
 };
-type WalletConnector = { apiVersion: string; connect(network: string): Promise<WalletConnection> };
 
-declare global { interface Window { midnight?: Record<string, unknown> } }
+const compatibleWallets = (): InitialAPI[] => Object.values(window.midnight ?? {})
+  .filter((wallet) => /^4\./.test(wallet.apiVersion));
 
-export type WalletInfo = { coinPublicKey: string; indexerUri: string; proverServerUri: string | null };
+export function hasPreprodWallet(): boolean {
+  return compatibleWallets().length > 0;
+}
 
 export async function connectPreprodWallet(): Promise<WalletInfo> {
-  const connector = Object.values(window.midnight || {}).find((candidate): candidate is WalletConnector => {
-    if (!candidate || typeof candidate !== 'object') return false;
-    const maybe = candidate as Partial<WalletConnector>;
-    return typeof maybe.apiVersion === 'string' && /^4\./.test(maybe.apiVersion) && typeof maybe.connect === 'function';
-  });
-  if (!connector) throw new Error('No compatible Lace Midnight wallet found. Install or enable a connector with API version 4.x.');
-  const wallet = await connector.connect('preprod');
-  await wallet.getConnectionStatus();
-  const [config, addresses] = await Promise.all([wallet.getConfiguration(), wallet.getShieldedAddresses()]);
-  if (!addresses.shieldedCoinPublicKey || !config.indexerUri) throw new Error('Wallet connected but did not provide a Preprod public key or indexer.');
-  return { coinPublicKey: addresses.shieldedCoinPublicKey, indexerUri: config.indexerUri, proverServerUri: config.proverServerUri || null };
+  const wallets = compatibleWallets();
+  if (!wallets.length) {
+    throw new Error('No Midnight wallet with DApp Connector API 4.x was found. Install or enable Lace Midnight, then reload this page.');
+  }
+
+  const selected = wallets[0];
+  const connected = await selected.connect('preprod');
+  await connected.hintUsage(['getUnshieldedAddress', 'getShieldedAddresses', 'getConfiguration', 'getDustBalance']);
+  const [status, address, shielded, config, dust] = await Promise.all([
+    connected.getConnectionStatus(),
+    connected.getUnshieldedAddress(),
+    connected.getShieldedAddresses(),
+    connected.getConfiguration(),
+    connected.getDustBalance(),
+  ]);
+
+  if (status.status !== 'connected' || status.networkId !== 'preprod' || config.networkId !== 'preprod') {
+    throw new Error('Your wallet is not connected to Midnight Preprod. Switch Lace to Preprod and try again.');
+  }
+  if (!address.unshieldedAddress.startsWith('mn_addr_preprod')) {
+    throw new Error('Lace returned an address for a different network. Select Preprod in the wallet and reconnect.');
+  }
+
+  return {
+    walletName: selected.name,
+    unshieldedAddress: address.unshieldedAddress,
+    shieldedCoinPublicKey: shielded.shieldedCoinPublicKey,
+    indexerUri: config.indexerUri,
+    nodeUri: config.substrateNodeUri,
+    proofServerUri: config.proverServerUri ?? null,
+    dustBalance: dust.balance,
+    dustCap: dust.cap,
+    connected,
+  };
 }
