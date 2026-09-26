@@ -199,9 +199,20 @@ switch (command) {
       const state = await wallet.unshielded.waitForSyncedState();
       const dustState = await firstValueFrom(wallet.dust.state);
       const balance = state.balances[unshieldedToken().raw] ?? 0n;
+      const now = new Date();
+      const projectedDust = dustState.estimateDustGeneration(state.availableCoins, now);
+      const registration = state.availableCoins.filter((coin) => coin.meta.registeredForDustGeneration);
       console.log(JSON.stringify({
         network: 'preprod', address, nightStarBalance: balance.toString(),
-        dustSpeckBalance: dustState.balance(new Date()).toString(), faucet: env.faucet,
+        dustSpeckBalance: dustState.balance(now).toString(),
+        nightOutputs: state.availableCoins.length,
+        dustRegisteredOutputs: registration.length,
+        projectedDustSpecks: projectedDust.map(({ dust }) => ({
+          generatedNow: dust.generatedNow.toString(),
+          maxCap: dust.maxCap.toString(),
+          maxCapReachedAt: dust.maxCapReachedAt.toISOString(),
+        })),
+        faucet: env.faucet,
       }, null, 2));
     });
     break;
