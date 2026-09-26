@@ -71,6 +71,9 @@ describe('NightFlip Compact contract', () => {
     const publicBet = g.state().bets.lookup(winner);
     expect(publicBet).not.toHaveProperty('choice');
     expect(publicBet.choiceCommitment).not.toEqual(salt);
+    expect(() => g.call('closeRound', 1n, operator)).toThrow('Betting window still open');
+    expect(g.state().rounds.lookup(1n).state).toBe(RoundState.OPEN);
+    g.setTime(now + 3600n);
     g.call('closeRound', 1n, operator);
     expect(() => g.call('revealRound', 1n, randomBytes(32), operator)).toThrow('Seed does not match commitment');
     g.call('revealRound', 1n, seed, operator);

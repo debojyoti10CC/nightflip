@@ -106,6 +106,7 @@ export circuit closeRound(roundId: Uint<64>, operatorSecret: Bytes<32>): [] {
   assert(rounds.member(disclose(roundId)), "Unknown round");
   const round = rounds.lookup(disclose(roundId));
   assert(round.state == RoundState.OPEN, "Round is not open");
+  assert(blockTimeGte(round.closeAt), "Betting window still open");
   rounds.insert(disclose(roundId), Round {
     commitment: round.commitment, seed: round.seed, outcome: round.outcome,
     state: RoundState.CLOSED, closeAt: round.closeAt, revealBy: round.revealBy,
