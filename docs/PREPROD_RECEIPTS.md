@@ -10,8 +10,19 @@ The initial operator deployment is retained here for traceability only. Its firs
 | Fund bankroll | `94f576285bddeb0ab984364dd88168df2404bee9579d81b637408621f6c71e87` | 2723818 | 100 test tNIGHT supplied |
 | Open round 1 | `a9ff5662b018ed8b14df65dea5a25e4e3638b2562dfbe30ab2a71f7d8b3de32b` | 2723966 | Retired because of the unit error |
 
-## Replacement release
+## Current release
 
-The operator now uses Unix seconds for `closeAt` and `revealBy`. A replacement contract is being deployed with a fresh bankroll and round. This record will be updated only after its receipts have been indexed.
+The operator now uses Unix seconds for `closeAt` and `revealBy`. The public build is configured with this contract address:
+
+- **Network:** Midnight Preprod
+- **NightFlip contract:** `57f5b3b56e59dfa057956b95051aab06642a2eb5792c0d3f4fa77346ceec4d8c`
+
+| Action | Midnight transaction hash | Block | Recorded result |
+| --- | --- | ---: | --- |
+| Deploy replacement NightFlip | `8937438deaf51441bfcdccf435fad256191efd3e7314121a014c31cda989015f` | 2724438 | Current contract address above created |
+| Fund bankroll | `a454830589cb43ee0bc2ed6aa66e1517247aef573296e58d9df6099a49147c2d` | 2724569 | 100 test tNIGHT supplied to the contract bankroll |
+| Open round 1 | `b03697cb11cfd028a96e362cca688f4abdb20d591f11e17a067f6f3c3ac1fd7d` | 2724719 | Committed round opened with a five-minute betting window expressed in Unix seconds |
+
+The contract state was read back from the Preprod indexer: round `1` is `OPEN`, the game is not paused, and there are no bets yet.
 
 No participant wallets, player bet receipts, winner claims, or timeout refunds are recorded here. Those events need real consenting players and independently verifiable transactions; they must never be synthesized for a submission.

@@ -4,7 +4,7 @@ This document separates completed code from evidence that requires real Preprod 
 
 | Requirement | Current evidence | Still required |
 | --- | --- | --- |
-| Level 4 MVP extended | Solo Flip UI and Compact protocol; added two-player Night Duel UI, room service, and Compact protocol; [NightFlip deployed and funded on Preprod](PREPROD_RECEIPTS.md) | Player bet, claim, and refund coverage |
+| Level 4 MVP extended | Solo Flip UI and Compact protocol; added two-player Night Duel UI, room service, and Compact protocol; [current NightFlip deployed, funded, and opened on Preprod](PREPROD_RECEIPTS.md) | Player bet, claim, and refund coverage |
 | Public GitHub repository | [debojyoti10CC/nightflip](https://github.com/debojyoti10CC/nightflip), public `main` branch | Keep release documentation current |
 | Live demo link | [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com), built from the public repository and verified with two browser sessions | Move to persistent storage before collecting beta feedback; Render's free filesystem is ephemeral |
 | 70 verifiable Preprod wallets | None collected | 70 genuine wallet addresses, consent, and per-address on-chain participation evidence |
