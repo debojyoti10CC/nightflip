@@ -200,8 +200,14 @@ switch (command) {
       const dustState = await firstValueFrom(wallet.dust.state);
       const balance = state.balances[unshieldedToken().raw] ?? 0n;
       const now = new Date();
-      const projectedDust = dustState.estimateDustGeneration(state.availableCoins, now);
       const registration = state.availableCoins.filter((coin) => coin.meta.registeredForDustGeneration);
+      let projectedDust = [];
+      let dustProjectionError = null;
+      try {
+        projectedDust = dustState.estimateDustGeneration(state.availableCoins, now);
+      } catch (error) {
+        dustProjectionError = error instanceof Error ? error.message : String(error);
+      }
       console.log(JSON.stringify({
         network: 'preprod', address, nightStarBalance: balance.toString(),
         dustSpeckBalance: dustState.balance(now).toString(),
@@ -212,6 +218,7 @@ switch (command) {
           maxCap: dust.maxCap.toString(),
           maxCapReachedAt: dust.maxCapReachedAt.toISOString(),
         })),
+        dustProjectionError,
         faucet: env.faucet,
       }, null, 2));
     });
