@@ -4,10 +4,13 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { firstValueFrom } from 'rxjs';
 import pino from 'pino';
-import { FluentWalletBuilder } from '@midnight-ntwrk/testkit-js';
 import { DustSecretKey, LedgerParameters, ZswapSecretKeys, unshieldedToken } from '@midnight-ntwrk/midnight-js-protocol/ledger';
 import { UnshieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
-import { createKeystore } from '@midnight-ntwrk/wallet-sdk-unshielded-wallet';
+import { PublicKey, UnshieldedWallet, createKeystore } from '@midnight-ntwrk/wallet-sdk-unshielded-wallet';
+import { ShieldedWallet } from '@midnight-ntwrk/wallet-sdk-shielded';
+import { DustWallet } from '@midnight-ntwrk/wallet-sdk-dust-wallet';
+import { InMemoryTransactionHistoryStorage } from '@midnight-ntwrk/wallet-sdk-abstractions';
+import { WalletEntrySchema, WalletFacade, mergeWalletEntries } from '@midnight-ntwrk/wallet-sdk-facade';
 import { HDWallet, Roles } from '@midnight-ntwrk/wallet-sdk-hd';
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import { ttlOneHour } from '@midnight-ntwrk/midnight-js-utils';
@@ -23,6 +26,7 @@ const storeFile = process.env.NIGHTFLIP_OPERATOR_STORE ?? 'operator-preprod.json
 if (!/^[a-z0-9][a-z0-9-]*\.json$/i.test(storeFile)) throw new Error('NIGHTFLIP_OPERATOR_STORE must be a simple .json filename');
 const storePath = resolve(root, 'data', storeFile);
 const stateDirectory = resolve(root, 'data', `${storeFile.slice(0, -5)}-state`);
+const dustSnapshotPath = resolve(root, 'data', `${storeFile.slice(0, -5)}-dust.json`);
 const artifactsPath = resolve(root, 'contract/src/managed/nightflip');
 const logger = pino({ level: process.env.NIGHTFLIP_OPERATOR_LOG_LEVEL ?? 'warn' });
 const env = {
@@ -85,16 +89,77 @@ async function saveStore(data, exclusive = false) {
   await writeFile(storePath, `${JSON.stringify(data, null, 2)}\n`, { flag: exclusive ? 'wx' : 'w', mode: 0o600 });
 }
 
+function deriveSeed(masterSeed, role) {
+  const rootKey = HDWallet.fromSeed(Buffer.from(masterSeed, 'hex'));
+  if (rootKey.type !== 'seedOk') throw new Error('Operator seed could not derive a wallet key');
+  const derived = rootKey.hdWallet.selectAccount(0).selectRole(role).deriveKeyAt(0);
+  if (derived.type === 'keyOutOfBounds') throw new Error('Operator key derivation failed');
+  return derived.key;
+}
+
+function walletConfiguration() {
+  return {
+    indexerClientConnection: { indexerHttpUrl: env.indexer, indexerWsUrl: env.indexerWS },
+    provingServerUrl: new URL(env.proofServer),
+    networkId: env.walletNetworkId,
+    relayURL: new URL(env.nodeWS),
+    txHistoryStorage: new InMemoryTransactionHistoryStorage(WalletEntrySchema, mergeWalletEntries),
+    costParameters: { feeBlocksMargin: 5 },
+  };
+}
+
+async function readDustSnapshot() {
+  try {
+    const persisted = JSON.parse(await readFile(dustSnapshotPath, 'utf8'));
+    if (typeof persisted.state !== 'string' || persisted.state.length === 0) throw new Error('Missing serialized DUST state');
+    return persisted.state;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw new Error(`Could not restore DUST state: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function saveDustSnapshot(wallet) {
+  const state = await wallet.dust.serializeState();
+  await mkdir(resolve(root, 'data'), { recursive: true });
+  await writeFile(dustSnapshotPath, `${JSON.stringify({ version: 1, savedAt: new Date().toISOString(), state })}\n`, { mode: 0o600 });
+}
+
 async function buildWallet(seed, start = true) {
   const dustOptions = {
     ledgerParams: LedgerParameters.initialParameters(),
     additionalFeeOverhead: 1_000n,
     feeBlocksMargin: 5,
   };
-  const { wallet, seeds, keystore } = await FluentWalletBuilder.forEnvironment(env)
-    .withDustOptions(dustOptions).withSeed(seed).buildWithoutStarting();
-  const zswapSecretKeys = ZswapSecretKeys.fromSeed(seeds.shielded);
-  const dustSecretKey = DustSecretKey.fromSeed(seeds.dust);
+  const zswapSeed = deriveSeed(seed, Roles.Zswap);
+  const dustSeed = deriveSeed(seed, Roles.Dust);
+  const unshieldedSeed = deriveSeed(seed, Roles.NightExternal);
+  const zswapSecretKeys = ZswapSecretKeys.fromSeed(zswapSeed);
+  const dustSecretKey = DustSecretKey.fromSeed(dustSeed);
+  const keystore = createKeystore(unshieldedSeed, 'preprod');
+  const config = walletConfiguration();
+  const dustConfig = {
+    ...config,
+    costParameters: {
+      ledgerParams: dustOptions.ledgerParams,
+      additionalFeeOverhead: dustOptions.additionalFeeOverhead,
+      feeBlocksMargin: dustOptions.feeBlocksMargin,
+    },
+  };
+  const Dust = DustWallet(dustConfig);
+  const snapshot = await readDustSnapshot();
+  const dustWallet = snapshot
+    ? Dust.restore(snapshot)
+    : Dust.startWithSeed(dustSeed, LedgerParameters.initialParameters().dust);
+  const wallet = await WalletFacade.init({
+    configuration: config,
+    shielded: () => ShieldedWallet(config).startWithSeed(zswapSeed),
+    unshielded: () => UnshieldedWallet({
+      ...config,
+      txHistoryStorage: new InMemoryTransactionHistoryStorage(WalletEntrySchema, mergeWalletEntries),
+    }).startWithPublicKey(PublicKey.fromKeyStore(keystore)),
+    dust: () => dustWallet,
+  });
   const provider = {
     getCoinPublicKey: () => zswapSecretKeys.coinPublicKey,
     getEncryptionPublicKey: () => zswapSecretKeys.encryptionPublicKey,
@@ -105,7 +170,13 @@ async function buildWallet(seed, start = true) {
     },
     submitTx: (tx) => submitTransaction(wallet, tx),
   };
-  if (start) await wallet.start(zswapSecretKeys, dustSecretKey);
+  if (start) {
+    await wallet.start(zswapSecretKeys, dustSecretKey);
+    await wallet.unshielded.waitForSyncedState();
+    // The Dust wallet starts from an empty snapshot and catches up asynchronously.
+    // Give its state stream time to process the current Preprod block before balancing.
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+  }
   const state = await firstValueFrom(wallet.unshielded.state);
   const address = UnshieldedAddress.codec.encode('preprod', state.address).toString();
   return { wallet, provider, address, state };
@@ -122,9 +193,7 @@ async function waitForFunds(wallet) {
 async function registerDust(wallet, walletSeed) {
   console.log('Reading funded NIGHT outputs...');
   const state = await wallet.unshielded.waitForSyncedState();
-  const utxos = state.availableCoins
-    .filter((coin) => !coin.meta.registeredForDustGeneration)
-    .map(({ utxo, meta }) => ({ ...utxo, ...meta }));
+  const utxos = state.availableCoins.filter((coin) => !coin.meta.registeredForDustGeneration);
   if (utxos.length === 0) return null;
   const hd = HDWallet.fromSeed(Buffer.from(walletSeed, 'hex'));
   if (hd.type !== 'seedOk') throw new Error('Operator seed could not derive an unshielded key');
@@ -175,7 +244,11 @@ async function withWallet(action) {
   try {
     return await action(store, account);
   } finally {
-    await account.wallet.stop();
+    try {
+      await saveDustSnapshot(account.wallet);
+    } finally {
+      await account.wallet.stop();
+    }
   }
 }
 
@@ -217,6 +290,7 @@ switch (command) {
       console.log(JSON.stringify({
         network: 'preprod', address, nightStarBalance: balance.toString(),
         dustSpeckBalance: dustState.balance(now).toString(),
+        dustCoins: dustState.totalCoins.length,
         nightOutputs: state.availableCoins.length,
         dustRegisteredOutputs: registration.length,
         projectedDustSpecks: projectedDust.map(({ dust }) => ({
@@ -236,6 +310,27 @@ switch (command) {
       await waitForFunds(wallet);
       const txHash = await registerDust(wallet, store.walletSeed);
       console.log(txHash ? `DUST registration submitted: ${txHash}` : 'All available NIGHT outputs are already registered for DUST generation.');
+    });
+    break;
+  }
+  case 'sync-dust': {
+    const seconds = argument == null ? 300 : Number(argument);
+    if (!Number.isSafeInteger(seconds) || seconds < 10 || seconds > 3_600) throw new Error('Usage: npm run operator -- sync-dust [seconds 10-3600]');
+    await withWallet(async (_, { wallet }) => {
+      const deadline = Date.now() + seconds * 1_000;
+      do {
+        const dust = await firstValueFrom(wallet.dust.state);
+        console.log(JSON.stringify({
+          appliedIndex: dust.progress.appliedIndex.toString(),
+          highestRelevantWalletIndex: dust.progress.highestRelevantWalletIndex.toString(),
+          connected: dust.progress.isConnected,
+          complete: dust.progress.isStrictlyComplete(),
+          dustSpeckBalance: dust.balance(new Date()).toString(),
+        }));
+        if (dust.progress.isStrictlyComplete()) return;
+        await new Promise((resolve) => setTimeout(resolve, 5_000));
+      } while (Date.now() < deadline);
+      throw new Error(`DUST sync is still in progress. Resume with: npm run operator -- sync-dust ${seconds}`);
     });
     break;
   }
@@ -309,7 +404,7 @@ switch (command) {
     break;
   }
   case 'help':
-    console.log('NightFlip Preprod operator: init | address | register-dust | deploy | fund <NIGHT> | open [minutes] | close <round-id> | reveal <round-id> | status');
+    console.log('NightFlip Preprod operator: init | address | register-dust | sync-dust [seconds] | deploy | fund <NIGHT> | open [minutes] | close <round-id> | reveal <round-id> | status');
     break;
   default:
     throw new Error(`Unknown command: ${command}`);
