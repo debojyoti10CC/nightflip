@@ -8,7 +8,7 @@ Run the public network check:
 npm run preprod:check
 ```
 
-This verifies `system_chain` returns `Midnight Preprod` and the public Preprod indexer has a block height. It proves the shared network is reachable, not that the game contract has been deployed.
+This verifies `system_chain` returns `Midnight Preprod` and the public Preprod indexer has a block height. It proves the shared network is reachable. The current deployment receipts are recorded in [PREPROD_RECEIPTS.md](PREPROD_RECEIPTS.md).
 
 ## Operator runbook
 
@@ -43,9 +43,7 @@ npm run operator -- reveal 1
 npm run operator -- status
 ```
 
-The CLI prints the Preprod transaction receipt for every successful action. Do not set `VITE_NIGHTFLIP_CONTRACT_ADDRESS` or present staking as live until deployment, bankroll funding, an open/reveal, a player bet, a winner claim, and an expired-round refund have each been confirmed on-chain.
-
-The current public site deliberately labels the contract as undeployed and refuses to submit a stake until this sequence is proven. It must not represent simulated credits as a Preprod transaction.
+The CLI prints the Preprod transaction receipt for every successful action. The verified deployment, bankroll funding, and first opening are recorded in [PREPROD_RECEIPTS.md](PREPROD_RECEIPTS.md). The public build is configured with that address. Player bets, winner claims, and expired-round refunds still need real independent coverage before describing the full player lifecycle as verified.
 
 ## Browser release after deployment
 

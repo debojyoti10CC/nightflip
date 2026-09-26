@@ -9,7 +9,7 @@
   <img src="docs/images/night-duel.png" width="100%" alt="NightFlip's 1990s arcade inspired Night Duel interface">
 </p>
 
-**A late 1990s arcade inspired Midnight game with hidden calls, staged reveals, and independently checkable outcomes.** The arcade includes a browser-side Lace client for the NightFlip Compact contract: it verifies the deployed contract, requests a player pass, makes a private Moon or Shadow call, follows the round state, and submits a winning claim. The repository currently has **no deployed contract address**, so the public site correctly stays in setup mode and cannot submit a stake.
+**A late 1990s arcade inspired Midnight game with hidden calls, staged reveals, and independently checkable outcomes.** The arcade includes a browser-side Lace client for the NightFlip Compact contract: it verifies the deployed contract, requests a player pass, makes a private Moon or Shadow call, follows the round state, and submits a winning claim. The current public build is configured for the verified NightFlip Preprod contract; see the [receipt record](docs/PREPROD_RECEIPTS.md) before using test funds.
 
 | | |
 | --- | --- |
@@ -17,9 +17,9 @@
 | **Playable demo** | [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com) — public build; a fresh Render deploy is required for the current arcade client |
 | **Browser demo video** | [Watch the two-player and Solo Flip recording](docs/video/nightflip-browser-demo.mp4); Preprod transaction footage pending |
 | **Preprod participant wallets** | 0 collected or verified for this game; 70 genuine on-chain participants required for the stated submission goal |
-| **Contract address** | None; neither Compact contract is deployed |
+| **Contract address** | [`7aaa30860b58da5d3c1db21b69be5a5a093af0c998b21fedbc4348eb70cd100b`](docs/PREPROD_RECEIPTS.md) on Midnight Preprod |
 | **Feedback record** | [Collection process and decision log](docs/FEEDBACK.md) |
-| **Network** | Midnight Preprod target; browser client is ready but no contract is deployed |
+| **Network** | Midnight Preprod; operator deployment, bankroll funding, and first round opening are recorded |
 | **Submission evidence** | [Level 5 checklist and release gates](docs/SUBMISSION.md) |
 
 ---
@@ -75,8 +75,8 @@ NightFlip's primary table is a Midnight Preprod flow. The browser obtains wallet
 | **Deadline settlement** | Handles unjoined rooms, one-sided reveal, and no reveal | `services/duel/game.mjs` | Implemented and tested in the demo |
 | **Proof export** | Saves result JSON for independent local checking | `scripts/verify-proof.mjs` | Implemented for completed demo rounds |
 | **Solo Flip** | Preserves the original Moon/Shadow mode | `app/src/App.tsx`, `app/src/game/demo.ts` | Playable with simulated credits |
-| **Lace circuit client** | Connects, verifies deployed contract state, registers, calls, and claims through a Midnight wallet | `app/src/chain/NightFlipClient.ts` | Ready for a verified Preprod address; no contract deployed yet |
-| **Compact protocols** | Models stakes, hidden commitments, payout, and refunds | `contract/src/nightflip.compact`, `contract/src/nightduel.compact` | NightFlip client packaged; deployment gate still open |
+| **Lace circuit client** | Connects, verifies deployed contract state, registers, calls, and claims through a Midnight wallet | `app/src/chain/NightFlipClient.ts` | Configured for the verified NightFlip Preprod address |
+| **Compact protocols** | Models stakes, hidden commitments, payout, and refunds | `contract/src/nightflip.compact`, `contract/src/nightduel.compact` | NightFlip is deployed; player transaction coverage remains pending |
 | **In-app feedback** | Collects ratings and categorized notes | `services/duel/feedback.mjs` | Local collection and fallback; real beta cohort pending |
 
 ## 3. Architecture
@@ -131,7 +131,7 @@ Two Compact contracts live under `contract/src/`:
 - `nightflip.compact` models the original private Moon/Shadow stake, committed operator seed, claim, and timeout refund.
 - `nightduel.compact` models two-player commitments, reveals, payout, tie, and deadline settlement.
 
-Both compile with the local Compact toolchain and have simulator tests. `nightflip.compact` is wired to the Lace browser client, including public ZK assets and a contract verifier-key check. Neither contract is deployed or independently audited. The [network status](docs/NETWORK.md) records the compiler compatibility and advisory gate that must be resolved before a safe Preprod deployment. The [deployment plan](docs/DEPLOY.md) lists the required wallet binding, funded transactions, proof service, indexer, and end-to-end payout checks.
+Both compile with the local Compact toolchain and have simulator tests. `nightflip.compact` is wired to the Lace browser client, including public ZK assets and a contract verifier-key check. NightFlip is deployed to Preprod, funded, and has opened its first round; the exact receipts are in [the Preprod receipt record](docs/PREPROD_RECEIPTS.md). It has not received an independent audit or a player claim/refund transaction. The [network status](docs/NETWORK.md) records the compiler compatibility and advisory gate. The [deployment plan](docs/DEPLOY.md) lists remaining end-to-end tests.
 
 **Verified Preprod user wallets for NightFlip: 0.** A real participant list needs 70 distinct consenting users with wallet addresses and independently verifiable on-chain participation. Demo room sessions and wallet connection checks do not count. The proposed evidence fields and verification criteria are in [docs/SUBMISSION.md](docs/SUBMISSION.md).
 
@@ -163,14 +163,14 @@ The stated Level 5 target includes the extended MVP, 70 verified Preprod users, 
 
 | Requirement | Evidence now | Status |
 | --- | --- | --- |
-| Extended MVP | Staged arcade table, Lace circuit client, demo rooms, Compact protocols | Client ready; contract deployment pending |
+| Extended MVP | Staged arcade table, Lace circuit client, demo rooms, Compact protocols | Contract deployed, funded, and configured; player-flow coverage pending |
 | Public GitHub repository | [nightflip](https://github.com/debojyoti10CC/nightflip) | Complete |
 | Updated documentation | README and linked technical/release documents | Complete for current local build |
 | Feedback loop | In-app form and [decision log](docs/FEEDBACK.md) | Documented; beta follow-up pending |
 | 30 meaningful commits | Scoped history on `main`; inspect with `git log --oneline` | Met |
 | Live demo link | [Public HTTPS demo](https://nightflip-arcade.onrender.com), independently checked with a two-browser room | Complete for the simulated-credit build |
 | 70 verifiable Preprod wallet addresses | No genuine cohort evidence collected | Pending |
-| Funded Preprod contract use | Operator wallet funded and registered for DUST; deployment blocked until spendable DUST accrues | Pending |
+| Funded Preprod contract use | [Deploy, bankroll funding, and round opening receipts](docs/PREPROD_RECEIPTS.md) | Operator actions complete; player claim/refund coverage pending |
 | Full MVP demo video | [Browser demo recording](docs/video/nightflip-browser-demo.mp4) covers multiplayer, Solo Flip, and fairness | Preprod transaction footage pending |
 
 The repository does not substitute simulated sessions, unrelated wallet lists, or invented transaction IDs for submission evidence.

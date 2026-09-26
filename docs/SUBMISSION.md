@@ -4,12 +4,12 @@ This document separates completed code from evidence that requires real Preprod 
 
 | Requirement | Current evidence | Still required |
 | --- | --- | --- |
-| Level 4 MVP extended | Solo Flip UI and Compact protocol; added two-player Night Duel UI, room service, and Compact protocol | Funded Preprod end-to-end demonstration |
+| Level 4 MVP extended | Solo Flip UI and Compact protocol; added two-player Night Duel UI, room service, and Compact protocol; [NightFlip deployed and funded on Preprod](PREPROD_RECEIPTS.md) | Player bet, claim, and refund coverage |
 | Public GitHub repository | [debojyoti10CC/nightflip](https://github.com/debojyoti10CC/nightflip), public `main` branch | Keep release documentation current |
 | Live demo link | [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com), built from the public repository and verified with two browser sessions | Move to persistent storage before collecting beta feedback; Render's free filesystem is ephemeral |
 | 70 verifiable Preprod wallets | None collected | 70 genuine wallet addresses, consent, and per-address on-chain participation evidence |
 | Feedback loop | [feedback process and first decision](FEEDBACK.md); in-app form and service | Real beta feedback, decisions, retests, and links to changes |
-| Updated documentation | README, network, build, contract, duel, feedback, this checklist | Update after actual deployment and beta |
+| Updated documentation | README, network, build, contract, duel, feedback, this checklist, and [receipt record](PREPROD_RECEIPTS.md) | Update after beta |
 | Demo video | [Browser demo recording](video/nightflip-browser-demo.mp4) shows two-player play, Solo Flip, and fairness | Add actual wallet transaction, refund and explorer evidence after Preprod integration |
 | Minimum 30 meaningful commits | 30 scoped commits on `main` before this checklist update | Preserve a reviewable, meaningful history |
 
@@ -17,7 +17,7 @@ This document separates completed code from evidence that requires real Preprod 
 
 Prepare a CSV with `wallet_address,network,first_participation_tx,contract_address,first_seen_utc,verification_url,consent_record`. Every row must have a distinct genuine Preprod wallet controlled by a participant and a transaction that the reviewer can independently find. Store consent privately; publish only what participants approved. Registration alone is insufficient because the current contract does not cryptographically bind an address to its registrant. Never fabricate missing rows.
 
-The owner also requested **150 Preprod transactions from different accounts**. Count only successful, independently queryable transactions from the accounts actually used; record the canonical transaction hash, address, contract, circuit, block, timestamp, and explorer link. One operator generating many wallets would produce distinct accounts but would **not** establish 70 distinct users. No NightFlip Preprod transactions have been produced yet. The browser demo's room IDs, hashes, and credit changes are not transactions.
+The owner also requested **150 Preprod transactions from different accounts**. Count only successful, independently queryable transactions from the accounts actually used; record the canonical transaction hash, address, contract, circuit, block, timestamp, and explorer link. One operator generating many wallets would produce distinct accounts but would **not** establish 70 distinct users. Three genuine operator transactions are recorded in [the receipt record](PREPROD_RECEIPTS.md); they do not meet the 150-transaction or 70-user requirement. The browser demo's room IDs, hashes, and credit changes are not transactions.
 
 ## Deployment gates
 
