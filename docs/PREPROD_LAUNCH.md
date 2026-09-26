@@ -47,4 +47,14 @@ The CLI prints the Preprod transaction receipt for every successful action. Do n
 
 The current public site deliberately labels the contract as undeployed and refuses to submit a stake until this sequence is proven. It must not represent simulated credits as a Preprod transaction.
 
+## Browser release after deployment
+
+The arcade ships the generated NightFlip circuit module and its public proving assets under `app/public/zk`. Once the operator records a verified contract address, set this **build-time** environment variable in the web host and trigger a fresh build:
+
+```text
+VITE_NIGHTFLIP_CONTRACT_ADDRESS=<verified Preprod contract address>
+```
+
+With that address present, a Lace-connected player can verify the deployed contract's verifier keys, receive a one-time player pass, lock a Moon or Shadow choice through Lace, watch the round progress from `OPEN` to `CLOSED` to `REVEALED`, and submit a winning claim. The app stores the player's private choice receipt only in that browser; clearing browser storage before settlement loses its local claim material. Do a complete test wallet run before presenting the hosted release as playable.
+
 The official Preprod RPC and indexer endpoints are documented in the [Midnight network reference](https://docs.midnight.network/guides/networks-and-environments). The required package versions are pinned in `docs/NETWORK.md`.

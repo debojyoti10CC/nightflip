@@ -9,17 +9,17 @@
   <img src="docs/images/night-duel.png" width="100%" alt="NightFlip's 1990s arcade inspired Night Duel interface">
 </p>
 
-**A late 1990s arcade inspired Midnight game with hidden moves, a real opponent, and independently checkable reveals.** Night Duel extends the original Solo Flip MVP with simultaneous Moon, Shadow, or Star choices, two browser rooms, fixed stakes, deadlines, and a downloadable proof. The playable browser build uses **simulated credits**. Its Compact contracts compile and pass simulator tests, but the app does **not** submit Preprod transactions and the contracts are **not deployed**.
+**A late 1990s arcade inspired Midnight game with hidden calls, staged reveals, and independently checkable outcomes.** The arcade includes a browser-side Lace client for the NightFlip Compact contract: it verifies the deployed contract, requests a player pass, makes a private Moon or Shadow call, follows the round state, and submits a winning claim. The repository currently has **no deployed contract address**, so the public site correctly stays in setup mode and cannot submit a stake.
 
 | | |
 | --- | --- |
 | **Repository** | [github.com/debojyoti10CC/nightflip](https://github.com/debojyoti10CC/nightflip) |
-| **Playable demo** | [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com) — public simulated-credit demo with multiplayer rooms |
+| **Playable demo** | [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com) — public build; a fresh Render deploy is required for the current arcade client |
 | **Browser demo video** | [Watch the two-player and Solo Flip recording](docs/video/nightflip-browser-demo.mp4); Preprod transaction footage pending |
 | **Preprod participant wallets** | 0 collected or verified for this game; 70 genuine on-chain participants required for the stated submission goal |
 | **Contract address** | None; neither Compact contract is deployed |
 | **Feedback record** | [Collection process and decision log](docs/FEEDBACK.md) |
-| **Network** | Midnight Preprod target; current browser rounds are off-chain simulations |
+| **Network** | Midnight Preprod target; browser client is ready but no contract is deployed |
 | **Submission evidence** | [Level 5 checklist and release gates](docs/SUBMISSION.md) |
 
 ---
@@ -63,7 +63,7 @@ The first NightFlip MVP was a private Moon/Shadow coin flip. It had the feel of 
 
 The visual direction is intentionally loud: oversized type, neon lime and violet, scan lines, hard borders, skyline silhouettes, and cabinet-style panels. Gameplay is designed around a clear three-step loop: **choose, commit, reveal**.
 
-Midnight is the intended chain for a later on-chain release. The repository includes Compact models of Solo Flip and Night Duel, but the browser currently uses a Node room service and simulated credits. Connecting a compatible Lace wallet only checks Preprod readiness; it does not authorize, sign, or submit a game transaction.
+NightFlip's primary table is a Midnight Preprod flow. The browser obtains wallet authorization from Lace, uses the public ZK artifacts packaged with the site, and keeps a player's choice salt local to the browser. It will only make this flow available after a verified deployed contract address is supplied at build time. The older Node room service remains a separate demo mode and does not represent an on-chain game.
 
 ## 2. Key features
 
@@ -75,8 +75,8 @@ Midnight is the intended chain for a later on-chain release. The repository incl
 | **Deadline settlement** | Handles unjoined rooms, one-sided reveal, and no reveal | `services/duel/game.mjs` | Implemented and tested in the demo |
 | **Proof export** | Saves result JSON for independent local checking | `scripts/verify-proof.mjs` | Implemented for completed demo rounds |
 | **Solo Flip** | Preserves the original Moon/Shadow mode | `app/src/App.tsx`, `app/src/game/demo.ts` | Playable with simulated credits |
-| **Wallet readiness** | Checks a compatible Lace connector and Preprod network | `app/src/wallet/lace.ts` | Connection check only |
-| **Compact protocols** | Models stakes, hidden commitments, payout, and refunds | `contract/src/nightflip.compact`, `contract/src/nightduel.compact` | Compile and pass simulator tests; undeployed |
+| **Lace circuit client** | Connects, verifies deployed contract state, registers, calls, and claims through a Midnight wallet | `app/src/chain/NightFlipClient.ts` | Ready for a verified Preprod address; no contract deployed yet |
+| **Compact protocols** | Models stakes, hidden commitments, payout, and refunds | `contract/src/nightflip.compact`, `contract/src/nightduel.compact` | NightFlip client packaged; deployment gate still open |
 | **In-app feedback** | Collects ratings and categorized notes | `services/duel/feedback.mjs` | Local collection and fallback; real beta cohort pending |
 
 ## 3. Architecture
@@ -88,12 +88,14 @@ flowchart LR
   UI -->|room, commitment, reveal| S[Node duel service]
   S --> D[(local room state)]
   UI -->|rating and notes| F[(local feedback log)]
-  UI -->|optional readiness check| W[Lace wallet connector]
+  UI -->|authorize, prove, balance, submit| W[Lace wallet connector]
+  UI -->|read state and verifier keys| I[Midnight Preprod indexer]
+  UI -->|public proving assets| Z[ZKIR + prover keys]
   UI -->|download result JSON| V[Offline proof verifier]
   C[Compact Solo + Duel contracts] --> T[Compiler and simulator tests]
 ```
 
-The Compact branch in this diagram is a **development and test path**. It is not connected to the playable browser flow. The demo's SHA-256 commitment format is also different from Compact's `persistentCommit`; an on-chain client must implement the latter before deployment. See the [duel trust model](docs/DUEL.md).
+The older room-service demo and the NightFlip Compact table have separate trust models. The Compact browser client uses the generated `persistentCommit` circuit and has no dependency on the demo's SHA-256 room commitments. See the [duel trust model](docs/DUEL.md).
 
 ## 4. Game rules and complete workflow
 
@@ -129,7 +131,7 @@ Two Compact contracts live under `contract/src/`:
 - `nightflip.compact` models the original private Moon/Shadow stake, committed operator seed, claim, and timeout refund.
 - `nightduel.compact` models two-player commitments, reveals, payout, tie, and deadline settlement.
 
-Both compile with the local Compact toolchain and have simulator tests. Neither is deployed, independently audited, or wired into the browser. The [network status](docs/NETWORK.md) records the compiler compatibility and advisory gate that must be resolved before a safe Preprod deployment. The [deployment plan](docs/DEPLOY.md) lists the required wallet binding, funded transactions, proof service, indexer, and end-to-end payout checks.
+Both compile with the local Compact toolchain and have simulator tests. `nightflip.compact` is wired to the Lace browser client, including public ZK assets and a contract verifier-key check. Neither contract is deployed or independently audited. The [network status](docs/NETWORK.md) records the compiler compatibility and advisory gate that must be resolved before a safe Preprod deployment. The [deployment plan](docs/DEPLOY.md) lists the required wallet binding, funded transactions, proof service, indexer, and end-to-end payout checks.
 
 **Verified Preprod user wallets for NightFlip: 0.** A real participant list needs 70 distinct consenting users with wallet addresses and independently verifiable on-chain participation. Demo room sessions and wallet connection checks do not count. The proposed evidence fields and verification criteria are in [docs/SUBMISSION.md](docs/SUBMISSION.md).
 
@@ -161,14 +163,14 @@ The stated Level 5 target includes the extended MVP, 70 verified Preprod users, 
 
 | Requirement | Evidence now | Status |
 | --- | --- | --- |
-| Extended MVP | Solo Flip plus two-browser Night Duel, demo proof export, Compact protocols | Local demo complete; Preprod integration pending |
+| Extended MVP | Staged arcade table, Lace circuit client, demo rooms, Compact protocols | Client ready; contract deployment pending |
 | Public GitHub repository | [nightflip](https://github.com/debojyoti10CC/nightflip) | Complete |
 | Updated documentation | README and linked technical/release documents | Complete for current local build |
 | Feedback loop | In-app form and [decision log](docs/FEEDBACK.md) | Documented; beta follow-up pending |
 | 30 meaningful commits | Scoped history on `main`; inspect with `git log --oneline` | Met |
 | Live demo link | [Public HTTPS demo](https://nightflip-arcade.onrender.com), independently checked with a two-browser room | Complete for the simulated-credit build |
 | 70 verifiable Preprod wallet addresses | No genuine cohort evidence collected | Pending |
-| Funded Preprod contract use | No deployment or game transactions | Pending |
+| Funded Preprod contract use | Operator wallet funded and registered for DUST; deployment blocked until spendable DUST accrues | Pending |
 | Full MVP demo video | [Browser demo recording](docs/video/nightflip-browser-demo.mp4) covers multiplayer, Solo Flip, and fairness | Preprod transaction footage pending |
 
 The repository does not substitute simulated sessions, unrelated wallet lists, or invented transaction IDs for submission evidence.
@@ -195,7 +197,7 @@ nightflip/
 - The room service receives hidden-move hashes at commitment and the moves and salts at reveal. It controls demo settlement and stores local room state. The browser keeps round state during play.
 - A browser proof is a check of hash consistency, not a zero-knowledge proof or chain receipt.
 - Feedback may contain user-written text. Keep the ignored `data/` directory private; avoid entering wallet addresses or personal information into feedback.
-- Never enter a seed phrase into this app or commit one to the repository. Connecting a wallet is only a readiness check in the current build.
+- Never enter a seed phrase into this app or commit one to the repository. Lace keeps wallet authorization and signing separate from the DApp. The browser holds its own private call receipt locally until a claim or refund is made.
 
 ## 12. Run and reproduce
 
