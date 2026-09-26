@@ -327,6 +327,9 @@ switch (command) {
           complete: dust.progress.isStrictlyComplete(),
           dustSpeckBalance: dust.balance(new Date()).toString(),
         }));
+        // Persist each checkpoint so an interrupted long Preprod catch-up resumes from
+        // the last observed cursor instead of replaying the DUST history from genesis.
+        await saveDustSnapshot(wallet);
         if (dust.progress.isStrictlyComplete()) return;
         await new Promise((resolve) => setTimeout(resolve, 5_000));
       } while (Date.now() < deadline);
