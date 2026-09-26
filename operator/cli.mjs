@@ -400,14 +400,15 @@ switch (command) {
     break;
   }
   case 'status': {
-    await withWallet(async (store, account) => {
-      const { generated, providers } = await contractContext(store, account);
-      const state = await providers.publicDataProvider.queryContractState(store.contractAddress);
-      if (!state) throw new Error('Contract not indexed yet');
-      const ledger = generated.ledger(state.data);
-      const round = ledger.latestRoundId > 0n ? ledger.rounds.lookup(ledger.latestRoundId) : null;
-      console.log(JSON.stringify({ contractAddress: store.contractAddress, latestRoundId: ledger.latestRoundId.toString(), roundState: round?.state ?? null, betCount: round?.betCount?.toString() ?? '0', closeAt: round?.closeAt?.toString() ?? null, revealBy: round?.revealBy?.toString() ?? null, paused: ledger.paused, reservedPayout: ledger.reservedPayout.toString() }, null, 2));
-    });
+    const store = await readStore();
+    if (!store.contractAddress) throw new Error('No deployed contract recorded. Run operator deploy first.');
+    const { generated } = await compiledContract();
+    const providers = makeProviders(store, 'readonly');
+    const state = await providers.publicDataProvider.queryContractState(store.contractAddress);
+    if (!state) throw new Error('Contract not indexed yet');
+    const ledger = generated.ledger(state.data);
+    const round = ledger.latestRoundId > 0n ? ledger.rounds.lookup(ledger.latestRoundId) : null;
+    console.log(JSON.stringify({ contractAddress: store.contractAddress, latestRoundId: ledger.latestRoundId.toString(), roundState: round?.state ?? null, betCount: round?.betCount?.toString() ?? '0', closeAt: round?.closeAt?.toString() ?? null, revealBy: round?.revealBy?.toString() ?? null, paused: ledger.paused, reservedPayout: ledger.reservedPayout.toString() }, null, 2));
     break;
   }
   case 'help':
