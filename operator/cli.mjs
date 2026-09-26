@@ -50,6 +50,8 @@ function hexBytes(value, name) {
 }
 
 async function submitTransaction(wallet, transaction) {
+  const ledgerTxId = transaction.identifiers().at(-1);
+  if (!ledgerTxId) throw new Error('Finalized Midnight transaction did not contain an identifier');
   try {
     return await wallet.submitTransaction(transaction);
   } catch (error) {
@@ -60,17 +62,19 @@ async function submitTransaction(wallet, transaction) {
     const { ApiPromise, WsProvider } = await import('@polkadot/api');
     const api = await ApiPromise.create({ provider: new WsProvider(env.nodeWS), noInitWarn: true });
     try {
-      const hash = await new Promise((resolveHash, rejectHash) => {
+      await new Promise((resolveHash, rejectHash) => {
         let unsubscribe;
         const onResult = (result) => {
           if (result.dispatchError) rejectHash(new Error(`Preprod transaction rejected: ${result.dispatchError.toString()}`));
-          if (result.status.isInBlock || result.status.isFinalized) resolveHash(result.txHash.toString());
+          if (result.status.isInBlock || result.status.isFinalized) resolveHash();
         };
         api.tx.midnight.sendMnTransaction(`0x${Buffer.from(txData).toString('hex')}`)
           .send(onResult).then((stop) => { unsubscribe = stop; }).catch(rejectHash);
       });
       console.log('Submitted through a persistent Preprod WebSocket connection.');
-      return hash;
+      // The indexer correlates transactions by their Midnight ledger identifier,
+      // not the outer Polkadot extrinsic hash returned by sendMnTransaction.
+      return ledgerTxId;
     } finally {
       await api.disconnect();
     }
