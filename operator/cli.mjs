@@ -19,7 +19,10 @@ import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const storePath = resolve(root, 'data/operator-preprod.json');
+const storeFile = process.env.NIGHTFLIP_OPERATOR_STORE ?? 'operator-preprod.json';
+if (!/^[a-z0-9][a-z0-9-]*\.json$/i.test(storeFile)) throw new Error('NIGHTFLIP_OPERATOR_STORE must be a simple .json filename');
+const storePath = resolve(root, 'data', storeFile);
+const stateDirectory = resolve(root, 'data', `${storeFile.slice(0, -5)}-state`);
 const artifactsPath = resolve(root, 'contract/src/managed/nightflip');
 const logger = pino({ level: process.env.NIGHTFLIP_OPERATOR_LOG_LEVEL ?? 'warn' });
 const env = {
@@ -119,7 +122,9 @@ async function waitForFunds(wallet) {
 async function registerDust(wallet, walletSeed) {
   console.log('Reading funded NIGHT outputs...');
   const state = await wallet.unshielded.waitForSyncedState();
-  const utxos = state.availableCoins.filter((coin) => !coin.meta.registeredForDustGeneration);
+  const utxos = state.availableCoins
+    .filter((coin) => !coin.meta.registeredForDustGeneration)
+    .map(({ utxo, meta }) => ({ ...utxo, ...meta }));
   if (utxos.length === 0) return null;
   const hd = HDWallet.fromSeed(Buffer.from(walletSeed, 'hex'));
   if (hd.type !== 'seedOk') throw new Error('Operator seed could not derive an unshielded key');
@@ -152,7 +157,7 @@ function makeProviders(store, account) {
   const zkConfigProvider = new NodeZkConfigProvider(artifactsPath);
   return {
     privateStateProvider: levelPrivateStateProvider({
-      midnightDbName: resolve(root, 'data/operator-state'),
+      midnightDbName: stateDirectory,
       privateStateStoreName: 'nightflip-private-state',
       signingKeyStoreName: 'nightflip-signing-keys',
       privateStoragePasswordProvider: () => `Nf!${store.operatorSecret}`,
@@ -200,11 +205,12 @@ switch (command) {
       const dustState = await firstValueFrom(wallet.dust.state);
       const balance = state.balances[unshieldedToken().raw] ?? 0n;
       const now = new Date();
-      const registration = state.availableCoins.filter((coin) => coin.meta.registeredForDustGeneration);
+      const dustUtxos = state.availableCoins.map(({ utxo, meta }) => ({ ...utxo, ...meta }));
+      const registration = dustUtxos.filter((coin) => coin.registeredForDustGeneration);
       let projectedDust = [];
       let dustProjectionError = null;
       try {
-        projectedDust = dustState.estimateDustGeneration(state.availableCoins, now);
+        projectedDust = dustState.estimateDustGeneration(dustUtxos, now);
       } catch (error) {
         dustProjectionError = error instanceof Error ? error.message : String(error);
       }
