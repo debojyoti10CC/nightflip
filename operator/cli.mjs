@@ -375,13 +375,14 @@ switch (command) {
       const roundId = ledger.latestRoundId + 1n;
       const seed = randomBytes(32);
       const commitment = generated.pureCircuits.roundCommit(roundId, seed);
-      const closeAt = BigInt(Date.now() + minutes * 60_000);
-      const revealBy = closeAt + 5n * 60_000n;
+      // Midnight's block-time circuits use Unix seconds, while Date.now() uses milliseconds.
+      const closeAt = BigInt(Math.floor(Date.now() / 1_000) + minutes * 60);
+      const revealBy = closeAt + 5n * 60n;
       store.rounds[roundId.toString()] = { seed: seed.toString('hex'), closeAt: closeAt.toString(), revealBy: revealBy.toString() };
       await saveStore(store);
       const tx = await found.callTx.openRound(commitment, closeAt, revealBy, hexBytes(store.operatorSecret, 'operatorSecret'));
       printReceipt('openRound', tx.public);
-      console.log(`Round ${roundId} open until ${new Date(Number(closeAt)).toISOString()}`);
+      console.log(`Round ${roundId} open until ${new Date(Number(closeAt) * 1_000).toISOString()}`);
     });
     break;
   }
