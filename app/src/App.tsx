@@ -11,9 +11,11 @@ import {
 import './duel.css';
 import { connectPreprodWallet, hasPreprodWallet, type WalletInfo } from './wallet/lace';
 import { NightStage, type NightStagePhase } from './scene/NightStage';
+import { NightFlipClient, type ChainRound } from './chain/NightFlipClient';
+import { useNightAudio } from './scene/useNightAudio';
 import './scene/night-stage.css';
 
-type Phase = 'idle' | 'committing' | 'flipping' | 'result';
+type Phase = 'idle' | 'committing' | 'flipping' | 'waiting' | 'result';
 type Panel = 'how' | 'fairness' | 'feedback' | 'wallet' | null;
 
 function SideMark({ side, size = 36 }: { side: Side; size?: number }) {
@@ -113,67 +115,26 @@ function App() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [activeRound, setActiveRound] = useState<DemoRound | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
-  const [sound, setSound] = useState(false);
+  const { enabled: sound, toggle: toggleSound, cue } = useNightAudio();
   const [mobileMenu, setMobileMenu] = useState(false);
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState('');
+  const [chainRound, setChainRound] = useState<ChainRound | null>(null);
+  const [chainReady, setChainReady] = useState(false);
+  const [registered, setRegistered] = useState(false);
+  const [pendingBetId, setPendingBetId] = useState<string | null>(null);
+  const chainClient = useRef<NightFlipClient | null>(null);
   const contractAddress = (import.meta.env.VITE_NIGHTFLIP_CONTRACT_ADDRESS || '').trim();
-  const preprodPlayable = Boolean(walletInfo && contractAddress);
+  const preprodPlayable = Boolean(walletInfo && contractAddress && chainReady);
   const walletDetected = hasPreprodWallet();
   const [error, setError] = useState('');
-  const audio = useRef<AudioContext | null>(null);
-  const musicTimer = useRef<number | null>(null);
 
   useEffect(() => { saveDemo(save); }, [save]);
 
   const displayedRounds = contractAddress ? save.rounds : [];
   const wins = displayedRounds.filter((round) => round.won).length;
   const updateSave = (next: DemoSave) => { setSave(next); saveDemo(next); };
-  const tone = (frequency: number, duration = 0.12) => {
-    if (!sound) return;
-    try {
-      const context = audio.current ?? (audio.current = new AudioContext());
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.type = 'square';
-      oscillator.frequency.setValueAtTime(frequency, context.currentTime);
-      gain.gain.setValueAtTime(0.025, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
-      oscillator.connect(gain).connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + duration);
-    } catch { /* Audio is optional if browser policy blocks it. */ }
-  };
-
-  useEffect(() => {
-    if (!sound) return;
-    const context = audio.current ?? (audio.current = new AudioContext());
-    const notes = [110, 146.83, 164.81, 146.83, 123.47, 164.81, 196, 164.81];
-    let step = 0;
-    const playPulse = () => {
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.type = step % 4 === 0 ? 'triangle' : 'sine';
-      oscillator.frequency.setValueAtTime(notes[step % notes.length], context.currentTime);
-      gain.gain.setValueAtTime(0.0001, context.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.028, context.currentTime + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.42);
-      oscillator.connect(gain).connect(context.destination);
-      oscillator.start();
-      oscillator.stop(context.currentTime + 0.45);
-      step += 1;
-    };
-    void context.resume().then(() => {
-      playPulse();
-      musicTimer.current = window.setInterval(playPulse, 460);
-    });
-    return () => {
-      if (musicTimer.current !== null) window.clearInterval(musicTimer.current);
-      musicTimer.current = null;
-    };
-  }, [sound]);
-
   const flip = async () => {
     if (!walletInfo) {
       setPanel('wallet');
@@ -184,35 +145,102 @@ function App() {
       setError('NightFlip is waiting for its Preprod contract address. No stake can be submitted until deployment is complete.');
       return;
     }
-    setError('The contract address is configured, but the live circuit client has not been enabled in this build. No transaction was submitted.');
+    if (!chainClient.current) {
+      setError('Preparing the secure Preprod circuit client. Reconnect Lace if this message remains.');
+      return;
+    }
+    if (!selection) {
+      setError('Choose Moon or Shadow before you lock your private call.');
+      return;
+    }
+    try {
+      setPhase('committing');
+      cue('lock');
+      if (!registered) {
+        await chainClient.current.registerPlayer();
+        setRegistered(true);
+        setPhase('idle');
+        setError('Player pass confirmed on Preprod. Your table is syncing; lock your call when the open round appears.');
+        return;
+      }
+      const bet = await chainClient.current.placeBet(selection);
+      setPendingBetId(bet.betId);
+      setChainRound(await chainClient.current.getRound());
+      setPhase('waiting');
+      setError('Your private call is locked. The arcade will wait for the operator to close and reveal this round.');
+    } catch (cause) {
+      setPhase('idle');
+      setError(cause instanceof Error ? cause.message : 'The Preprod transaction could not be completed.');
+    }
   };
 
-  const claim = () => {
+  const claim = async () => {
+    if (chainClient.current && pendingBetId) {
+      try {
+        await chainClient.current.claim(pendingBetId);
+        cue('win');
+        setError('Your 1.90 tNIGHT claim was submitted to Midnight Preprod. Lace will show the finalized receipt.');
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'The winning claim could not be submitted.');
+      }
+      return;
+    }
     if (!activeRound?.won || activeRound.claimed) return;
     const updated = { ...activeRound, claimed: true };
     setActiveRound(updated);
-    tone(880, 0.2);
+    cue('win');
     updateSave({ balance: Math.round((save.balance + 1.9) * 100) / 100, rounds: save.rounds.map((round) => round.id === updated.id ? updated : round) });
   };
 
   const playAgain = () => { setSelection(null); setActiveRound(null); setPhase('idle'); setError(''); };
+  const refreshRound = async () => {
+    if (!chainClient.current) return;
+    const nextRound = await chainClient.current.getRound();
+    setChainRound(nextRound);
+    if (nextRound?.state === 'REVEALED' && pendingBetId) {
+      setPhase('result');
+      cue(nextRound.outcome === selection ? 'win' : 'loss');
+    }
+  };
+  useEffect(() => {
+    if (!chainReady || !chainClient.current) return;
+    const interval = window.setInterval(() => { void refreshRound().catch(() => undefined); }, 12_000);
+    return () => window.clearInterval(interval);
+  }, [chainReady, pendingBetId, selection]);
+
   const connectWallet = async () => {
     setWalletBusy(true); setWalletError('');
-    try { setWalletInfo(await connectPreprodWallet()); }
+    try {
+      const info = await connectPreprodWallet();
+      setWalletInfo(info);
+      if (contractAddress) {
+        chainClient.current = await NightFlipClient.connect(info, contractAddress);
+        setChainReady(true);
+        setRegistered(await chainClient.current.isRegistered());
+        await refreshRound();
+      }
+    }
     catch (cause) { setWalletError(cause instanceof Error ? cause.message : 'Wallet connection failed.'); }
     finally { setWalletBusy(false); }
   };
 
-  const buttonLabel = !walletInfo ? 'CONNECT PREPROD WALLET' : !contractAddress ? 'PREPROD CONTRACT PENDING' : phase === 'committing' ? 'LOCKING YOUR PICK…' : phase === 'flipping' ? 'FLIPPING THE NIGHT…' : 'STAKE 1 tNIGHT';
+  const buttonLabel = !walletInfo ? 'CONNECT PREPROD WALLET' : !contractAddress ? 'PREPROD CONTRACT PENDING' : !chainReady ? 'PREPARING PREPROD CLIENT…' : phase === 'committing' ? (registered ? 'LOCKING YOUR PICK…' : 'ISSUING PLAYER PASS…') : phase === 'waiting' ? 'PICK LOCKED • AWAIT REVEAL' : phase === 'flipping' ? 'FLIPPING THE NIGHT…' : 'LOCK 1 tNIGHT CALL';
   const stagePhase: NightStagePhase = !walletInfo || !contractAddress
     ? 'offline'
     : phase === 'committing' ? 'preparing'
-      : phase === 'flipping' ? 'revealing'
-        : phase === 'result' ? 'revealed' : 'open';
+      : chainRound?.state === 'REVEALED' || phase === 'result' ? 'revealed'
+        : chainRound?.state === 'CLOSED' || phase === 'flipping' ? 'revealing'
+          : 'open';
   const stageDetail = !walletInfo
     ? 'Connect Lace on Midnight Preprod. Your wallet remains in control.'
     : !contractAddress
       ? 'The NightFlip contract is being prepared on Preprod. Stakes remain disabled until its on-chain address is verified.'
+      : chainRound?.state === 'OPEN'
+        ? `Round ${chainRound.id} is taking hidden calls. ${chainRound.betCount}/20 seats locked.`
+        : chainRound?.state === 'CLOSED'
+          ? `Round ${chainRound.id} is closed. The operator is revealing the committed seed.`
+          : chainRound?.state === 'REVEALED'
+            ? `Round ${chainRound.id} revealed ${chainRound.outcome}. The commitment is now publicly checkable.`
       : phase === 'result' && activeRound
         ? `Round settled: ${activeRound.outcome} was revealed from the committed seed.`
         : undefined;
@@ -237,16 +265,16 @@ function App() {
 
       <div className="game-layout">
         <section className="game-frame" aria-label="NightFlip game">
-          <div className="frame-top"><div className="frame-heading"><span className="frame-symbol">✦</span> THE NIGHT ROOM <span className="frame-sub">// PREPROD TABLE</span></div><div className="frame-controls"><span className="round-status"><span /> {contractAddress ? `CONTRACT ${contractAddress.slice(0, 8)}…` : 'CONTRACT NOT DEPLOYED'}</span><button className="small-icon sound-toggle" onClick={() => setSound(!sound)} aria-label={sound ? 'Mute arcade music' : 'Play arcade music'} title={sound ? 'Mute arcade music' : 'Play arcade music'}>{sound ? <><Volume2 size={16} /><small>SOUND ON</small></> : <><VolumeX size={16} /><small>SOUND OFF</small></>}</button></div></div>
+          <div className="frame-top"><div className="frame-heading"><span className="frame-symbol">✦</span> THE NIGHT ROOM <span className="frame-sub">// PREPROD TABLE</span></div><div className="frame-controls"><span className="round-status"><span /> {chainRound ? `ROUND ${chainRound.id} • ${chainRound.state}` : contractAddress ? `CONTRACT ${contractAddress.slice(0, 8)}…` : 'CONTRACT NOT DEPLOYED'}</span><button className="small-icon sound-toggle" onClick={() => void toggleSound()} aria-label={sound ? 'Mute arcade music' : 'Play arcade music'} title={sound ? 'Mute arcade music' : 'Play arcade music'}>{sound ? <><Volume2 size={16} /><small>SOUND ON</small></> : <><VolumeX size={16} /><small>SOUND OFF</small></>}</button></div></div>
 
           <div className="night-room night-room--live">
             <NightStage
               phase={stagePhase}
-              roundId={contractAddress ? undefined : null}
+              roundId={chainRound ? BigInt(chainRound.id) : (contractAddress ? undefined : null)}
               choice={selection}
-              outcome={activeRound?.outcome}
-              won={activeRound?.won}
-              betCount={0}
+              outcome={chainRound?.outcome ?? activeRound?.outcome}
+              won={chainRound?.outcome ? chainRound.outcome === selection : activeRound?.won}
+              betCount={chainRound?.betCount ?? 0}
               statusDetail={stageDetail}
             />
           </div>
@@ -259,7 +287,7 @@ function App() {
               </button>)}
             </div>
             <div className="action-row">
-              {phase === 'result' ? <div className="result-actions"><div className={`result-callout ${activeRound?.won ? 'win' : 'loss'}`}><span>{activeRound?.won ? '✦ WINNER WINNER' : '✳ ROUND COMPLETE'}</span><strong>{activeRound?.won ? '+1.90 tNIGHT' : `${activeRound?.outcome} WON`}</strong><small>{activeRound?.won ? 'Demo payout ready to claim' : 'Your 1 tNIGHT demo stake was spent'}</small></div><div className="result-buttons">{activeRound?.won && !activeRound.claimed && <button className="button button-lime" onClick={claim}><Coins size={19} /> CLAIM 1.90</button>}<button className="button button-outline" onClick={playAgain}>PLAY AGAIN <RotateCcw size={17} /></button></div></div> : <><button className="button button-lime flip-button" onClick={flip} disabled={phase !== 'idle' || (preprodPlayable && !selection)}>{phase === 'idle' ? <span className="flip-spark">✦</span> : <span className="spinner" />}{buttonLabel}<ArrowRight size={21} /></button><div className="stake-note"><strong>FIXED PREPROD STAKE</strong><span>1.00 tNIGHT <span className="dot-divide">•</span> WIN 1.90</span></div></>}
+              {phase === 'result' ? <div className="result-actions"><div className={`result-callout ${chainRound?.outcome === selection || activeRound?.won ? 'win' : 'loss'}`}><span>{chainRound ? (chainRound.outcome === selection ? '✦ YOUR CALL HIT' : '✳ THE TABLE REVEALED') : activeRound?.won ? '✦ WINNER WINNER' : '✳ ROUND COMPLETE'}</span><strong>{chainRound ? (chainRound.outcome === selection ? '+1.90 tNIGHT' : `${chainRound.outcome} WON`) : activeRound?.won ? '+1.90 tNIGHT' : `${activeRound?.outcome} WON`}</strong><small>{chainRound ? (chainRound.outcome === selection ? 'Claim the actual Preprod payout in Lace.' : 'Your private call is recorded; the next table is open soon.') : activeRound?.won ? 'Demo payout ready to claim' : 'Your 1 tNIGHT demo stake was spent'}</small></div><div className="result-buttons">{(chainRound?.outcome === selection || (activeRound?.won && !activeRound.claimed)) && <button className="button button-lime" onClick={() => void claim()}><Coins size={19} /> CLAIM 1.90</button>}<button className="button button-outline" onClick={playAgain}>PLAY AGAIN <RotateCcw size={17} /></button></div></div> : <><button className="button button-lime flip-button" onClick={() => void flip()} disabled={phase !== 'idle' || (preprodPlayable && !selection)}>{phase === 'idle' ? <span className="flip-spark">✦</span> : <span className="spinner" />}{buttonLabel}<ArrowRight size={21} /></button><div className="stake-note"><strong>FIXED PREPROD STAKE</strong><span>1.00 tNIGHT <span className="dot-divide">•</span> WIN 1.90</span></div></>}
             </div>
             {error && <p className="inline-error" role="alert">{error}</p>}
             {walletInfo && !contractAddress && phase === 'idle' && <div className="low-credits">Wallet connected. The game will unlock after the NightFlip Preprod contract is deployed and its address is configured.</div>}
@@ -268,7 +296,7 @@ function App() {
         </section>
 
         <aside className="sidebar">
-          <section className="panel wallet-panel"><div className="panel-head"><span>PLAYER TERMINAL</span><span className="panel-dot">● ● ●</span></div><div className="wallet-top"><div className="avatar-badge">✦</div><div><span className="eyebrow">WALLET SESSION</span><strong>{walletInfo ? walletInfo.walletName : 'NOT CONNECTED'}</strong></div><span className={walletInfo ? 'online-pill' : 'online-pill offline'}>{walletInfo ? 'PREPROD' : 'OFFLINE'}</span></div><div className="balance-box"><span>{walletInfo ? 'PREPROD WALLET' : 'WALLET REQUIRED'}</span><strong>{walletInfo ? `${walletInfo.unshieldedAddress.slice(0, 10)}…${walletInfo.unshieldedAddress.slice(-6)}` : 'CONNECT'} <small>{walletInfo ? 'ADDRESS' : 'LACE'}</small></strong><div className="balance-bars"><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /></div></div><div className="wallet-meta"><span><Coins size={15} /> FIXED BET <strong>1.00</strong></span><span><Sparkles size={15} /> WIN PAYS <strong>1.90</strong></span></div><p className="panel-disclaimer">{walletInfo ? `DUST available: ${walletInfo.dustBalance.toString()} / ${walletInfo.dustCap.toString()} raw units. Contract calls remain disabled until the deployed address is set.` : 'Connect Lace on Midnight Preprod. The wallet keeps all authorization and private keys.'}</p></section>
+          <section className="panel wallet-panel"><div className="panel-head"><span>PLAYER TERMINAL</span><span className="panel-dot">● ● ●</span></div><div className="wallet-top"><div className="avatar-badge">✦</div><div><span className="eyebrow">WALLET SESSION</span><strong>{walletInfo ? walletInfo.walletName : 'NOT CONNECTED'}</strong></div><span className={walletInfo ? 'online-pill' : 'online-pill offline'}>{walletInfo ? 'PREPROD' : 'OFFLINE'}</span></div><div className="balance-box"><span>{walletInfo ? 'PREPROD WALLET' : 'WALLET REQUIRED'}</span><strong>{walletInfo ? `${walletInfo.unshieldedAddress.slice(0, 10)}…${walletInfo.unshieldedAddress.slice(-6)}` : 'CONNECT'} <small>{walletInfo ? 'ADDRESS' : 'LACE'}</small></strong><div className="balance-bars"><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /><i /></div></div><div className="wallet-meta"><span><Coins size={15} /> FIXED BET <strong>1.00</strong></span><span><Sparkles size={15} /> WIN PAYS <strong>1.90</strong></span></div><p className="panel-disclaimer">{walletInfo ? `DUST available: ${walletInfo.dustBalance.toString()} / ${walletInfo.dustCap.toString()} raw units. ${chainReady ? (registered ? 'Player pass is ready; calls are sent through Lace.' : 'Your first call issues a one-time player pass.') : 'The secure circuit client will activate after a contract address is configured.'}` : 'Connect Lace on Midnight Preprod. The wallet keeps all authorization and private keys.'}</p></section>
 
           <section className="panel stats-panel"><div className="panel-head"><span>YOUR PREPROD ACTIVITY</span><History size={15} /></div><div className="stats-grid"><div><span>ROUNDS PLAYED</span><strong>{String(displayedRounds.length).padStart(2, '0')}</strong></div><div><span>WINS</span><strong>{String(wins).padStart(2, '0')}</strong></div></div><div className="history-head"><span>RECENT SETTLEMENTS</span><span className="eyebrow">ON-CHAIN</span></div><div className="history-list">{displayedRounds.length ? displayedRounds.slice(0, 4).map((round) => <button className="history-item" key={round.id} onClick={() => { setActiveRound(round); setPanel('fairness'); }}><span className={`history-symbol ${round.outcome.toLowerCase()}`}><SideMark side={round.outcome} size={18} /></span><span><strong>ROUND #{String(round.id).padStart(3, '0')}</strong><small>{round.choice} PICK</small></span><em className={round.won ? 'won' : 'lost'}>{round.won ? 'WON' : 'LOST'}</em></button>) : <div className="history-empty">NO SETTLEMENTS YET <span>✦</span><small>Your first confirmed Preprod bet will appear here.</small></div>}</div></section>
 

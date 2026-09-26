@@ -4,7 +4,9 @@ export type WalletInfo = {
   walletName: string;
   unshieldedAddress: string;
   shieldedCoinPublicKey: string;
+  shieldedEncryptionPublicKey: string;
   indexerUri: string;
+  indexerWsUri: string;
   nodeUri: string;
   proofServerUri: string | null;
   dustBalance: bigint;
@@ -47,7 +49,9 @@ export async function connectPreprodWallet(): Promise<WalletInfo> {
     walletName: selected.name,
     unshieldedAddress: address.unshieldedAddress,
     shieldedCoinPublicKey: shielded.shieldedCoinPublicKey,
+    shieldedEncryptionPublicKey: shielded.shieldedEncryptionPublicKey,
     indexerUri: config.indexerUri,
+    indexerWsUri: config.indexerWsUri,
     nodeUri: config.substrateNodeUri,
     proofServerUri: config.proverServerUri ?? null,
     dustBalance: dust.balance,
