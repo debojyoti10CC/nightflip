@@ -10,6 +10,8 @@ import {
 } from './game/demo';
 import './duel.css';
 import { connectPreprodWallet, hasPreprodWallet, type WalletInfo } from './wallet/lace';
+import { NightStage, type NightStagePhase } from './scene/NightStage';
+import './scene/night-stage.css';
 
 type Phase = 'idle' | 'committing' | 'flipping' | 'result';
 type Panel = 'how' | 'fairness' | 'feedback' | 'wallet' | null;
@@ -202,6 +204,18 @@ function App() {
   };
 
   const buttonLabel = !walletInfo ? 'CONNECT PREPROD WALLET' : !contractAddress ? 'PREPROD CONTRACT PENDING' : phase === 'committing' ? 'LOCKING YOUR PICK…' : phase === 'flipping' ? 'FLIPPING THE NIGHT…' : 'STAKE 1 tNIGHT';
+  const stagePhase: NightStagePhase = !walletInfo || !contractAddress
+    ? 'offline'
+    : phase === 'committing' ? 'preparing'
+      : phase === 'flipping' ? 'revealing'
+        : phase === 'result' ? 'revealed' : 'open';
+  const stageDetail = !walletInfo
+    ? 'Connect Lace on Midnight Preprod. Your wallet remains in control.'
+    : !contractAddress
+      ? 'The NightFlip contract is being prepared on Preprod. Stakes remain disabled until its on-chain address is verified.'
+      : phase === 'result' && activeRound
+        ? `Round settled: ${activeRound.outcome} was revealed from the committed seed.`
+        : undefined;
 
   return <div className="site-shell">
     <div className="scanlines" aria-hidden="true" />
@@ -225,17 +239,16 @@ function App() {
         <section className="game-frame" aria-label="NightFlip game">
           <div className="frame-top"><div className="frame-heading"><span className="frame-symbol">✦</span> THE NIGHT ROOM <span className="frame-sub">// PREPROD TABLE</span></div><div className="frame-controls"><span className="round-status"><span /> {contractAddress ? `CONTRACT ${contractAddress.slice(0, 8)}…` : 'CONTRACT NOT DEPLOYED'}</span><button className="small-icon sound-toggle" onClick={() => setSound(!sound)} aria-label={sound ? 'Mute arcade music' : 'Play arcade music'} title={sound ? 'Mute arcade music' : 'Play arcade music'}>{sound ? <><Volume2 size={16} /><small>SOUND ON</small></> : <><VolumeX size={16} /><small>SOUND OFF</small></>}</button></div></div>
 
-          <div className="night-room">
-            <div className="room-grid" /><div className="starfield" aria-hidden="true">{Array.from({ length: 34 }, (_, index) => <i key={index} style={{ left: `${(index * 37 + 13) % 100}%`, top: `${(index * 19 + 7) % 65}%`, animationDelay: `${(index % 7) * .4}s` }} />)}</div>
-            <div className="horizon" aria-hidden="true"><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /><span /></div>
-            <div className="room-label label-left">⚡ PRIVATE PICK</div><div className="room-label label-right">1<span>.</span>00 tNIGHT</div>
-            <div className="orbit orbit-one" /><div className="orbit orbit-two" />
-            <div className="coin-stage"><div className={`coin ${phase === 'flipping' ? 'coin-flipping' : ''} ${phase === 'result' && activeRound?.outcome === 'SHADOW' ? 'coin-shadow-result' : ''}`}>
-              <div className="coin-face coin-front"><div className="coin-face-inner"><MoonStar size={86} strokeWidth={1.2} /><span>MOON</span></div></div>
-              <div className="coin-face coin-back"><div className="coin-face-inner"><SideMark side="SHADOW" size={86} /><span>SHADOW</span></div></div>
-            </div><div className="coin-halo" /></div>
-            <div className="room-floor" />
-            <div className="room-bottom-label">{!walletInfo ? 'CONNECT LACE TO UNLOCK THE TABLE' : !contractAddress ? 'CONTRACT DEPLOYMENT REQUIRED' : phase === 'idle' ? 'PICK A SIDE TO BEGIN' : phase === 'committing' ? 'YOUR CHOICE IS LOCKED' : phase === 'flipping' ? 'FATE IS IN MOTION' : activeRound?.won ? 'THE NIGHT IS YOURS' : 'THE NIGHT CHOSE OTHERWISE'}</div>
+          <div className="night-room night-room--live">
+            <NightStage
+              phase={stagePhase}
+              roundId={contractAddress ? undefined : null}
+              choice={selection}
+              outcome={activeRound?.outcome}
+              won={activeRound?.won}
+              betCount={0}
+              statusDetail={stageDetail}
+            />
           </div>
 
           <div className="play-area">
