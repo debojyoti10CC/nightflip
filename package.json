@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Midnight Preprod private coin-flip game",
-  "workspaces": ["app", "contract", "services/*"],
+  "workspaces": ["app", "contract", "operator", "services/*"],
   "scripts": {
     "check": "node scripts/check-foundation.mjs",
     "dev": "node scripts/dev.mjs",
@@ -11,7 +11,8 @@
     "test": "npm test -w @nightflip/contract && npm test -w @nightflip/duel-service",
     "feedback:summary": "node scripts/feedback-summary.mjs",
     "proof:verify": "node scripts/verify-proof.mjs",
-    "preprod:check": "node scripts/preprod-check.mjs"
+    "preprod:check": "node scripts/preprod-check.mjs",
+    "operator": "node --import ./operator/ws-preload.mjs operator/cli.mjs"
   },
   "engines": {
     "node": ">=22.15.0"

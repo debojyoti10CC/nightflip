@@ -16,9 +16,9 @@ Checked 23 September 2026 against the current [official Preprod compatibility ma
 | Preprod indexer | 4.3.302 |
 | Proof server | 8.1.0 |
 
-The working **local development lock** remains compiler 0.31.0, language 0.23, compact-runtime 0.16.0, and Midnight.js network-id 4.1.1. Both NightFlip contracts compile and pass simulator tests. This proves local development behavior, not Preprod transaction compatibility or proof-system soundness.
+The working **local development lock** is compiler 0.31.1, language 0.23, compact-runtime 0.16.0, and Midnight.js network-id 4.1.1. Both NightFlip contracts compile and pass simulator tests. This proves local development behavior, not Preprod transaction compatibility or proof-system soundness.
 
-**Deployment gate:** the advisory's affected-version metadata covers compiler versions through 0.31.1. The official Preprod matrix currently lists 0.31.1, while the newer 0.34.0 compiler targets a different ledger generation according to its [release notes](https://docs.midnight.network/relnotes/compact/toolchain-0.34.0). Do not deploy these contracts until the official toolchain support and advisory status are reconciled, a compatible fixed compiler is available, and generated verifier keys are reviewed. This is a network/toolchain issue; test funds alone cannot clear it.
+**Compiler verification:** the advisory metadata says versions through 0.31.1 are affected, while its remediation text calls for 0.31.1 or later. We installed the official 0.31.1 toolchain and compiled the advisory's published conditional-cast trigger beside 0.31.0: the vulnerable 0.31.0 output omitted the expected `constrain_bits` gate and 0.31.1 emitted it. NightFlip is compiled from that 0.31.1 binary. This clears the specific published compiler regression for this source build; it does not replace a full independent protocol audit. The newer 0.34.0 compiler targets a different ledger generation according to its [release notes](https://docs.midnight.network/relnotes/compact/toolchain-0.34.0), so it is not a Preprod substitute.
 
 Preprod endpoints from the same matrix:
 
