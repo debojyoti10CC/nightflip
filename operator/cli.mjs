@@ -377,7 +377,9 @@ switch (command) {
       const commitment = generated.pureCircuits.roundCommit(roundId, seed);
       // Midnight's block-time circuits use Unix seconds, while Date.now() uses milliseconds.
       const closeAt = BigInt(Math.floor(Date.now() / 1_000) + minutes * 60);
-      const revealBy = closeAt + 5n * 60n;
+      // Wallet restoration and proof generation can take several minutes on Preprod.
+      // Leave a full operator window after betting closes to publish the committed seed.
+      const revealBy = closeAt + 60n * 60n;
       store.rounds[roundId.toString()] = { seed: seed.toString('hex'), closeAt: closeAt.toString(), revealBy: revealBy.toString() };
       await saveStore(store);
       const tx = await found.callTx.openRound(commitment, closeAt, revealBy, hexBytes(store.operatorSecret, 'operatorSecret'));
