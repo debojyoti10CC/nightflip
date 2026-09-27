@@ -18,7 +18,8 @@
     "proof:verify": "node scripts/verify-proof.mjs",
     "preprod:check": "node scripts/preprod-check.mjs",
     "operator": "node --import ./operator/ws-preload.mjs operator/cli.mjs",
-    "preprod:analytics": "node scripts/preprod-analytics.mjs"
+    "preprod:analytics": "node scripts/preprod-analytics.mjs",
+    "bot:qa": "node scripts/bot-qa.mjs"
   },
   "engines": {
     "node": ">=22.15.0"

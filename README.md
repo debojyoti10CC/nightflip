@@ -38,6 +38,8 @@
 
 The **Solo Flip** tab keeps the original one-player Moon/Shadow game available as a separate mode.
 
+For repeatable room-game QA, `npm run bot:qa` records 100 automated local bots completing 50 simulated duels. It has no wallets, Preprod transactions, or submission credit; see the [bot QA record](docs/BOT_QA.md).
+
 ---
 
 ## Table of contents
@@ -157,6 +159,7 @@ The summary script reports counts and average ratings without printing free-text
 | [Build plan](docs/BUILD_PLAN.md) | Development milestones |
 | [Submission evidence](docs/SUBMISSION.md) | Level 5 checklist and participant verification format |
 | [Preprod analytics scanner](docs/PREPROD_ANALYTICS.md) | Read-only live counts for public contract activity |
+| [Local bot QA record](docs/BOT_QA.md) | 100 automated simulation bots; excluded from wallet and Preprod evidence |
 
 ## 9. Submission checklist
 

@@ -1,0 +1,24 @@
+{
+  "schema": "nightflip-bot-qa/v1",
+  "recordedAt": "2026-09-27T13:53:24.443Z",
+  "mode": "local-simulation",
+  "participantType": "automated QA bots",
+  "bots": 100,
+  "completedDuels": 50,
+  "results": {
+    "decisive": 38,
+    "ties": 12
+  },
+  "checks": {
+    "allDuelsSettled": true,
+    "everyBotCompletedOneDuel": true,
+    "simulatedCreditAccountingReconciled": true
+  },
+  "evidenceBoundary": {
+    "walletAddresses": 0,
+    "preprodTransactions": 0,
+    "onChainInteractions": 0,
+    "countsTowardPreprodParticipants": false,
+    "countsTowardSubmissionEvidence": false
+  }
+}
