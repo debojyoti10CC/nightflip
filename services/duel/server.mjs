@@ -12,7 +12,8 @@ const feedbackFile = process.env.FEEDBACK_FILE || resolve(import.meta.dirname, '
 const stateFile = process.env.DUEL_STATE_FILE || resolve(import.meta.dirname, '../../data/duel-state.json');
 const staticDir = process.env.STATIC_DIR ? resolve(process.env.STATIC_DIR) : '';
 const mimeType = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml',
-  '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.wasm': 'application/wasm',
+  '.prover': 'application/octet-stream', '.verifier': 'application/octet-stream', '.zkir': 'application/octet-stream', '.bzkir': 'application/octet-stream' };
 const feedbackRate = new Map();
 try { game.restore(JSON.parse(await readFile(stateFile, 'utf8'))); }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -40,7 +41,10 @@ const bodyOf = async (req) => {
   try { return JSON.parse(raw || '{}'); } catch { throw Object.assign(new Error('Invalid JSON.'), { status: 400 }); }
 };
 const serveStatic = async (url, res) => {
-  const assetPath = url.pathname.startsWith('/assets/') ? url.pathname.slice(1) : 'index.html';
+  const requestedPath = decodeURIComponent(url.pathname).replace(/^\/+/, '');
+  // Vite assets and Midnight proving artifacts must retain their real paths.
+  // Route-like paths still receive the single-page app shell.
+  const assetPath = requestedPath && extname(requestedPath) ? requestedPath : 'index.html';
   const path = resolve(staticDir, assetPath);
   if (!path.startsWith(`${staticDir}${sep}`)) return send(res, 404, { error: 'Not found.' });
   try {

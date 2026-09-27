@@ -124,6 +124,7 @@ function App() {
   const [chainReady, setChainReady] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [pendingBetId, setPendingBetId] = useState<string | null>(null);
+  const [clientError, setClientError] = useState('');
   const chainClient = useRef<NightFlipClient | null>(null);
   const contractAddress = (import.meta.env.VITE_NIGHTFLIP_CONTRACT_ADDRESS || 'c9c248ccee39612a2e8546c244f5b5da4f66b25ae04ace2936086690df1dfa40').trim();
   const preprodPlayable = Boolean(walletInfo && contractAddress && chainReady);
@@ -146,7 +147,7 @@ function App() {
       return;
     }
     if (!chainClient.current) {
-      setError('Preparing the secure Preprod circuit client. Reconnect Lace if this message remains.');
+      setError(clientError || 'The Preprod circuit client is not ready. Reconnect Lace to try again.');
       return;
     }
     if (!selection) {
@@ -209,7 +210,7 @@ function App() {
   }, [chainReady, pendingBetId, selection]);
 
   const connectWallet = async () => {
-    setWalletBusy(true); setWalletError('');
+    setWalletBusy(true); setWalletError(''); setClientError(''); setChainReady(false); chainClient.current = null;
     try {
       const info = await connectPreprodWallet();
       setWalletInfo(info);
@@ -220,7 +221,12 @@ function App() {
         await refreshRound();
       }
     }
-    catch (cause) { setWalletError(cause instanceof Error ? cause.message : 'Wallet connection failed.'); }
+    catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Wallet connection failed.';
+      setWalletError(message);
+      setClientError(message);
+      setError(message);
+    }
     finally { setWalletBusy(false); }
   };
 
@@ -290,6 +296,7 @@ function App() {
               {phase === 'result' ? <div className="result-actions"><div className={`result-callout ${chainRound?.outcome === selection || activeRound?.won ? 'win' : 'loss'}`}><span>{chainRound ? (chainRound.outcome === selection ? '✦ YOUR CALL HIT' : '✳ THE TABLE REVEALED') : activeRound?.won ? '✦ WINNER WINNER' : '✳ ROUND COMPLETE'}</span><strong>{chainRound ? (chainRound.outcome === selection ? '+1.90 tNIGHT' : `${chainRound.outcome} WON`) : activeRound?.won ? '+1.90 tNIGHT' : `${activeRound?.outcome} WON`}</strong><small>{chainRound ? (chainRound.outcome === selection ? 'Claim the actual Preprod payout in Lace.' : 'Your private call is recorded; the next table is open soon.') : activeRound?.won ? 'Demo payout ready to claim' : 'Your 1 tNIGHT demo stake was spent'}</small></div><div className="result-buttons">{(chainRound?.outcome === selection || (activeRound?.won && !activeRound.claimed)) && <button className="button button-lime" onClick={() => void claim()}><Coins size={19} /> CLAIM 1.90</button>}<button className="button button-outline" onClick={playAgain}>PLAY AGAIN <RotateCcw size={17} /></button></div></div> : <><button className="button button-lime flip-button" onClick={() => void flip()} disabled={phase !== 'idle' || (preprodPlayable && !selection)}>{phase === 'idle' ? <span className="flip-spark">✦</span> : <span className="spinner" />}{buttonLabel}<ArrowRight size={21} /></button><div className="stake-note"><strong>FIXED PREPROD STAKE</strong><span>1.00 tNIGHT <span className="dot-divide">•</span> WIN 1.90</span></div></>}
             </div>
             {error && <p className="inline-error" role="alert">{error}</p>}
+            {walletInfo && clientError && phase === 'idle' && <div className="low-credits">{clientError} <button onClick={() => void connectWallet()} disabled={walletBusy}>{walletBusy ? 'RETRYING…' : 'RETRY PREPROD CLIENT'}</button></div>}
             {walletInfo && !contractAddress && phase === 'idle' && <div className="low-credits">Wallet connected. Reload the arcade if the NightFlip table does not initialize.</div>}
           </div>
           <div className="frame-footer"><span><ShieldCheck size={15} /> COMMITTED ROUND SEED</span><span><LockKeyhole size={15} /> HIDDEN PLAYER CHOICE</span><span><Sparkles size={15} /> PREPROD ONLY</span></div>
