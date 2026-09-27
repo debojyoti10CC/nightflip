@@ -38,7 +38,7 @@
 
 The **Solo Flip** tab keeps the original one-player Moon/Shadow game available as a separate mode.
 
-For repeatable room-game QA, `npm run bot:qa` records 100 automated local bots completing 50 simulated duels. It has no wallets, Preprod transactions, or submission credit; see the [bot QA record](docs/BOT_QA.md).
+For repeatable room-game QA, `npm run bot:qa` runs 100 local bots and `npm run render:bot-qa` runs 100 automated sessions against the deployed Render API. Both complete 50 duels, have no wallets or Preprod transactions, and have no submission credit; see the [bot QA record](docs/BOT_QA.md).
 
 ---
 
