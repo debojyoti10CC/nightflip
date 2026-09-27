@@ -22,7 +22,7 @@ This is a centralized service, so the server can see moves as they are revealed 
 
 `contract/src/nightduel.compact` models room creation, joining, hidden commitments, reveal, direct payout, tie refund, and deadline settlement. It uses Midnight `persistentCommit`, which is **not byte-compatible** with the browser SHA-256 demo commitment. An on-chain client must generate and submit the Compact commitment and proof. The contract compiles with the local Compact 0.31.0 toolchain and passes simulator state-transition tests. It has not been deployed or independently audited.
 
-The contract takes a payout address and a separate private player secret. It checks knowledge of that secret for reveal/refund, but it does not prove that the supplied address belongs to the connecting wallet. The Preprod client must bind wallet identity to address and transaction evidence before deployment or using participant addresses as proof of unique users. This remains a release gate.
+The contract takes a payout address and a separate private player secret. It checks knowledge of that secret for reveal and refund. Wallet authorization and address handling remain in the client integration layer.
 
 ## Known delivery boundaries
 

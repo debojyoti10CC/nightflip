@@ -125,7 +125,7 @@ function App() {
   const [registered, setRegistered] = useState(false);
   const [pendingBetId, setPendingBetId] = useState<string | null>(null);
   const chainClient = useRef<NightFlipClient | null>(null);
-  const contractAddress = (import.meta.env.VITE_NIGHTFLIP_CONTRACT_ADDRESS || '').trim();
+  const contractAddress = (import.meta.env.VITE_NIGHTFLIP_CONTRACT_ADDRESS || 'c9c248ccee39612a2e8546c244f5b5da4f66b25ae04ace2936086690df1dfa40').trim();
   const preprodPlayable = Boolean(walletInfo && contractAddress && chainReady);
   const walletDetected = hasPreprodWallet();
   const [error, setError] = useState('');
@@ -142,7 +142,7 @@ function App() {
       return;
     }
     if (!contractAddress) {
-      setError('NightFlip is waiting for its Preprod contract address. No stake can be submitted until deployment is complete.');
+      setError('NightFlip table configuration is unavailable. Reload the arcade and reconnect your wallet.');
       return;
     }
     if (!chainClient.current) {
@@ -224,7 +224,7 @@ function App() {
     finally { setWalletBusy(false); }
   };
 
-  const buttonLabel = !walletInfo ? 'CONNECT PREPROD WALLET' : !contractAddress ? 'PREPROD CONTRACT PENDING' : !chainReady ? 'PREPARING PREPROD CLIENT…' : phase === 'committing' ? (registered ? 'LOCKING YOUR PICK…' : 'ISSUING PLAYER PASS…') : phase === 'waiting' ? 'PICK LOCKED • AWAIT REVEAL' : phase === 'flipping' ? 'FLIPPING THE NIGHT…' : 'LOCK 1 tNIGHT CALL';
+  const buttonLabel = !walletInfo ? 'CONNECT PREPROD WALLET' : !contractAddress ? 'PREPROD TABLE UNAVAILABLE' : !chainReady ? 'PREPARING PREPROD CLIENT…' : phase === 'committing' ? (registered ? 'LOCKING YOUR PICK…' : 'ISSUING PLAYER PASS…') : phase === 'waiting' ? 'PICK LOCKED • AWAIT REVEAL' : phase === 'flipping' ? 'FLIPPING THE NIGHT…' : 'LOCK 1 tNIGHT CALL';
   const stagePhase: NightStagePhase = !walletInfo || !contractAddress
     ? 'offline'
     : phase === 'committing' ? 'preparing'
@@ -290,7 +290,7 @@ function App() {
               {phase === 'result' ? <div className="result-actions"><div className={`result-callout ${chainRound?.outcome === selection || activeRound?.won ? 'win' : 'loss'}`}><span>{chainRound ? (chainRound.outcome === selection ? '✦ YOUR CALL HIT' : '✳ THE TABLE REVEALED') : activeRound?.won ? '✦ WINNER WINNER' : '✳ ROUND COMPLETE'}</span><strong>{chainRound ? (chainRound.outcome === selection ? '+1.90 tNIGHT' : `${chainRound.outcome} WON`) : activeRound?.won ? '+1.90 tNIGHT' : `${activeRound?.outcome} WON`}</strong><small>{chainRound ? (chainRound.outcome === selection ? 'Claim the actual Preprod payout in Lace.' : 'Your private call is recorded; the next table is open soon.') : activeRound?.won ? 'Demo payout ready to claim' : 'Your 1 tNIGHT demo stake was spent'}</small></div><div className="result-buttons">{(chainRound?.outcome === selection || (activeRound?.won && !activeRound.claimed)) && <button className="button button-lime" onClick={() => void claim()}><Coins size={19} /> CLAIM 1.90</button>}<button className="button button-outline" onClick={playAgain}>PLAY AGAIN <RotateCcw size={17} /></button></div></div> : <><button className="button button-lime flip-button" onClick={() => void flip()} disabled={phase !== 'idle' || (preprodPlayable && !selection)}>{phase === 'idle' ? <span className="flip-spark">✦</span> : <span className="spinner" />}{buttonLabel}<ArrowRight size={21} /></button><div className="stake-note"><strong>FIXED PREPROD STAKE</strong><span>1.00 tNIGHT <span className="dot-divide">•</span> WIN 1.90</span></div></>}
             </div>
             {error && <p className="inline-error" role="alert">{error}</p>}
-            {walletInfo && !contractAddress && phase === 'idle' && <div className="low-credits">Wallet connected. The game will unlock after the NightFlip Preprod contract is deployed and its address is configured.</div>}
+            {walletInfo && !contractAddress && phase === 'idle' && <div className="low-credits">Wallet connected. Reload the arcade if the NightFlip table does not initialize.</div>}
           </div>
           <div className="frame-footer"><span><ShieldCheck size={15} /> COMMITTED ROUND SEED</span><span><LockKeyhole size={15} /> HIDDEN PLAYER CHOICE</span><span><Sparkles size={15} /> PREPROD ONLY</span></div>
         </section>

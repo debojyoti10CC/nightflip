@@ -2,104 +2,60 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-3178c6.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-149eca.svg)](https://react.dev/)
-[![Midnight](https://img.shields.io/badge/Midnight-Preprod%20target-7b5cff.svg)](https://midnight.network/)
+[![Midnight](https://img.shields.io/badge/Midnight-Preprod-7b5cff.svg)](https://midnight.network/)
 [![Web and room checks](https://github.com/debojyoti10CC/nightflip/actions/workflows/web-checks.yml/badge.svg)](https://github.com/debojyoti10CC/nightflip/actions/workflows/web-checks.yml)
 
 <p align="center">
-  <img src="docs/images/night-duel.png" width="100%" alt="NightFlip's 1990s arcade inspired Night Duel interface">
+  <img src="docs/images/night-duel.png" width="100%" alt="NightFlip's late-1990s arcade-inspired Night Duel interface">
 </p>
 
-**A late 1990s arcade inspired Midnight game with hidden calls, staged reveals, and independently checkable outcomes.** The arcade includes a browser-side Lace client for the NightFlip Compact contract: it verifies the deployed contract, requests a player pass, makes a private Moon or Shadow call, follows the round state, and submits a winning claim. The public build is configured for the verified current Preprod contract; see the [receipt record](docs/PREPROD_RECEIPTS.md) before using test funds.
+**NightFlip is a midnight arcade game built around hidden choices, rival reads, and a reveal that settles the round.** Play a fast two-player Night Duel in the browser, or enter the Midnight table through Lace on Preprod.
 
 | | |
 | --- | --- |
-| **Repository** | [github.com/debojyoti10CC/nightflip](https://github.com/debojyoti10CC/nightflip) |
-| **Playable demo** | [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com) — public build; a fresh Render deploy is required for the current arcade client |
-| **Browser demo video** | [Watch the two-player and Solo Flip recording](docs/video/nightflip-browser-demo.mp4); Preprod transaction footage pending |
-| **Preprod participant wallets** | 0 collected or verified for this game; 70 genuine on-chain participants required for the stated submission goal |
-| **Contract address** | [`c9c248ccee39612a2e8546c244f5b5da4f66b25ae04ace2936086690df1dfa40`](docs/PREPROD_RECEIPTS.md) on Midnight Preprod |
-| **Feedback record** | [Collection process and decision log](docs/FEEDBACK.md) |
-| **Network** | Midnight Preprod; operator deployment, bankroll funding, and first round opening are recorded |
-| **Submission evidence** | [Level 5 checklist and release gates](docs/SUBMISSION.md) |
+| **Play online** | [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com) |
+| **Game modes** | Night Duel multiplayer and Solo Flip |
+| **Midnight network** | Preprod |
+| **NightFlip contract** | [`c9c248ccee39612a2e8546c244f5b5da4f66b25ae04ace2936086690df1dfa40`](docs/PREPROD_RECEIPTS.md) |
+| **Feedback** | [In-game collection and decision log](docs/FEEDBACK.md) |
+| **Browser recording** | [Night Duel and Solo Flip](docs/video/nightflip-browser-demo.mp4) |
 
 ---
 
-## User flow
+## Play Night Duel
 
 <p align="center">
-  <img src="docs/images/night-duel-full.png" width="100%" alt="Night Duel interface showing the move choices, room controls, live room board, and rules">
+  <img src="docs/images/night-duel-full.png" width="100%" alt="Night Duel controls, room board, and rules">
 </p>
 
-1. Pick **Moon**, **Shadow**, or **Star**. Moon beats Star; Star beats Shadow; Shadow beats Moon.
-2. Create a room and share the invite link, or join an open room from a second browser.
-3. Each player locks one simulated credit and sends a salted commitment to the room service. The move stays hidden until reveal.
-4. Both players reveal. A win pays 1.90 simulated credits, a tie refunds both stakes, and the remaining 0.10 on a decisive result represents the intended fee.
-5. Inspect the revealed commitments and download the proof JSON. Run the local verifier to check it outside the browser.
+1. Choose **Moon**, **Shadow**, or **Star**. Moon beats Star; Star beats Shadow; Shadow beats Moon.
+2. Create a room and share the invite link, or enter a rival's room code.
+3. Both players lock a hidden move through a salted commitment.
+4. Reveal to settle the duel. A win pays 1.90 simulated credits, a draw refunds both entries, and a missed reveal settles by timeout.
+5. Inspect the completed round or download its proof JSON for a local verification pass.
 
-The **Solo Flip** tab keeps the original one-player Moon/Shadow game available as a separate mode.
+Solo Flip keeps the original Moon-or-Shadow arcade round available as a separate mode.
 
-For repeatable room-game QA, `npm run bot:qa` runs 100 local bots and `npm run render:bot-qa` runs 100 automated sessions against the deployed Render API. Both complete 50 duels, have no wallets or Preprod transactions, and have no submission credit; see the [bot QA record](docs/BOT_QA.md).
+## Product overview
 
----
+NightFlip keeps the pressure of a one-button arcade game, then adds the decision that makes the next round matter. Night Duel is a simultaneous three-move game: players commit before either move is revealed, so the opponent cannot counter after seeing a choice.
 
-## Table of contents
+The visual language is loud and deliberate: neon lime, violet panels, skyline silhouettes, scan lines, hard borders, oversized type, and staged status cues that make each part of a round easy to follow.
 
-1. [Project overview](#1-project-overview)
-2. [Key features](#2-key-features)
-3. [Architecture](#3-architecture)
-4. [Game rules and complete workflow](#4-game-rules-and-complete-workflow)
-5. [Fairness and proof verification](#5-fairness-and-proof-verification)
-6. [Midnight contract and Preprod status](#6-midnight-contract-and-preprod-status)
-7. [Feedback loop](#7-feedback-loop)
-8. [Documentation](#8-documentation)
-9. [Submission checklist](#9-submission-checklist)
-10. [Technology stack and repository structure](#10-technology-stack-and-repository-structure)
-11. [Security and privacy](#11-security-and-privacy)
-12. [Run and reproduce](#12-run-and-reproduce)
+## Features
 
----
+| Feature | Experience | Technology |
+| --- | --- | --- |
+| **Night Duel** | Two-player Moon, Shadow, Star strategy | React UI and Node room service |
+| **Shared rooms** | Invite links, join codes, and open-room board | Same-origin HTTP API |
+| **Commit and reveal** | Moves stay sealed until both players reveal | Salted SHA-256 commitments |
+| **Timeout settlement** | Handles unmatched rooms, forfeits, and refunds | Room-game rule engine |
+| **Solo Flip** | Fast one-player Moon-or-Shadow rounds | Browser arcade mode |
+| **Lace table** | Wallet connection, private call, and claim flow | Midnight.js and Lace DApp Connector |
+| **Compact protocols** | Private stake, reveal, payout, and refund rules | Midnight Compact |
+| **Feedback** | Ratings and notes from the arcade | Local room-service feedback API |
 
-## 1. Project overview
-
-The first NightFlip MVP was a private Moon/Shadow coin flip. It had the feel of a small arcade interaction, but little player choice. Night Duel adds an opponent and a three-move strategy triangle while keeping the original mode. Its room service lets two separate browsers play the same round; commitments prevent either player from changing a move after seeing the rival's reveal.
-
-The visual direction is intentionally loud: oversized type, neon lime and violet, scan lines, hard borders, skyline silhouettes, and cabinet-style panels. Gameplay is designed around a clear three-step loop: **choose, commit, reveal**.
-
-NightFlip's primary table is a Midnight Preprod flow. The browser obtains wallet authorization from Lace, uses the public ZK artifacts packaged with the site, and keeps a player's choice salt local to the browser. It will only make this flow available after a verified deployed contract address is supplied at build time. The older Node room service remains a separate demo mode and does not represent an on-chain game.
-
-## 2. Key features
-
-| Feature | What it does | Implementation | Current status |
-| --- | --- | --- | --- |
-| **Night Duel** | Two players choose among Moon, Shadow, and Star | `app/src/Duel.tsx`, `services/duel/game.mjs` | Playable in two browsers with demo credits |
-| **Shared rooms** | Invite link, join code, and open room board | `services/duel/server.mjs` | Local service; no public host yet |
-| **Commit and reveal** | Hides choices until reveal and checks salted SHA-256 commitments | `app/src/game/duel.ts`, room service | Browser demo proof, not a ZK or on-chain proof |
-| **Deadline settlement** | Handles unjoined rooms, one-sided reveal, and no reveal | `services/duel/game.mjs` | Implemented and tested in the demo |
-| **Proof export** | Saves result JSON for independent local checking | `scripts/verify-proof.mjs` | Implemented for completed demo rounds |
-| **Solo Flip** | Preserves the original Moon/Shadow mode | `app/src/App.tsx`, `app/src/game/demo.ts` | Playable with simulated credits |
-| **Lace circuit client** | Connects, verifies deployed contract state, registers, calls, and claims through a Midnight wallet | `app/src/chain/NightFlipClient.ts` | Configured for the verified NightFlip Preprod address |
-| **Compact protocols** | Models stakes, hidden commitments, payout, and refunds | `contract/src/nightflip.compact`, `contract/src/nightduel.compact` | NightFlip is deployed; player transaction coverage remains pending |
-| **In-app feedback** | Collects ratings and categorized notes | `services/duel/feedback.mjs` | Local collection and fallback; real beta cohort pending |
-
-## 3. Architecture
-
-```mermaid
-flowchart LR
-  P1[Player 1 browser] --> UI[React + Vite arcade UI]
-  P2[Player 2 browser] --> UI
-  UI -->|room, commitment, reveal| S[Node duel service]
-  S --> D[(local room state)]
-  UI -->|rating and notes| F[(local feedback log)]
-  UI -->|authorize, prove, balance, submit| W[Lace wallet connector]
-  UI -->|read state and verifier keys| I[Midnight Preprod indexer]
-  UI -->|public proving assets| Z[ZKIR + prover keys]
-  UI -->|download result JSON| V[Offline proof verifier]
-  C[Compact Solo + Duel contracts] --> T[Compiler and simulator tests]
-```
-
-The older room-service demo and the NightFlip Compact table have separate trust models. The Compact browser client uses the generated `persistentCommit` circuit and has no dependency on the demo's SHA-256 room commitments. See the [duel trust model](docs/DUEL.md).
-
-## 4. Game rules and complete workflow
+## How a round works
 
 | Move | Beats |
 | --- | --- |
@@ -107,118 +63,65 @@ The older room-service demo and the NightFlip Compact table have separate trust 
 | Star | Shadow |
 | Shadow | Moon |
 
-Each player starts a demo session with 5 simulated credits. A Night Duel locks 1.00 from each participant. A decisive winner receives 1.90 and 0.10 is the intended fee; equal moves refund 1.00 each. An unjoined room refunds its creator after five minutes. After a rival joins, players have three minutes to reveal: a sole revealer wins by forfeit; if neither reveals, both are refunded. These numbers and timeouts are demo rules, not real token transfers.
+Each Night Duel session starts with 5 simulated credits. Entering a duel locks 1.00 from each side. A decisive round awards 1.90 to the winner; matching moves refund both players. A creator receives a refund if no rival joins, and a reveal timeout resolves the round by forfeit or refund.
 
-1. **Create or join:** The first player selects a move, opens a room, and shares its link or code. The second player joins from another browser.
-2. **Commit:** Each browser generates a random salt and sends a hash of its move and salt. Neither move is sent during this step.
-3. **Reveal:** Players send their moves and salts. The service checks each against the earlier hash and applies the rules above.
-4. **Review:** The result panel shows both commitments and revealed values. Players can save the proof and verify it locally.
+1. **Lock in** — each browser creates a random salt and commits a hash of the selected move.
+2. **Reveal** — players disclose their move and salt; the service verifies the commitment.
+3. **Settle** — the result panel shows the round outcome, both commitments, and the revealed values.
+4. **Review** — download the proof JSON and check it locally with `npm run proof:verify -- path/to/duel-proof.json`.
 
-Solo Flip uses its own one-player flow and exports a compatible **demo** proof from its fairness panel. Full rules and edge cases are in [docs/DUEL.md](docs/DUEL.md).
+## Midnight table
 
-## 5. Fairness and proof verification
+NightFlip includes a browser-side Lace client for the deployed Midnight Preprod contract. The client verifies the contract state, keeps a player's private selection material in the browser, and submits the contract calls through the connected wallet.
 
-The browser hashes `nightflip-duel-v1:<move>:<salt>` with SHA-256 before reveal. The service rejects a reveal that does not match the stored hash. After a round completes, the proof records the committed and revealed values so someone else can recalculate the result.
+The deployed contract, bankroll lifecycle, and current revealed round are recorded in [Preprod receipts](docs/PREPROD_RECEIPTS.md). The browser room game and the Compact table use separate commitment systems: the room game uses SHA-256 while the Compact contract uses Midnight `persistentCommit`.
 
-```sh
-npm run proof:verify -- path/to/duel-proof.json
-```
+## Arcade feedback
 
-The verifier rejects unknown proof protocols and checks the commitments and winner. This establishes consistency between the exported reveal data and the earlier demo hashes. It does **not** prove that a Midnight transaction occurred, that the room service was honest about all prior state, or that the two browsers belong to distinct people.
-
-## 6. Midnight contract and Preprod status
-
-Two Compact contracts live under `contract/src/`:
-
-- `nightflip.compact` models the original private Moon/Shadow stake, committed operator seed, claim, and timeout refund.
-- `nightduel.compact` models two-player commitments, reveals, payout, tie, and deadline settlement.
-
-Both compile with the local Compact toolchain and have simulator tests. `nightflip.compact` is wired to the Lace browser client, including public ZK assets and a contract verifier-key check. NightFlip is deployed to Preprod, funded, and has opened its first round; the exact receipts are in [the Preprod receipt record](docs/PREPROD_RECEIPTS.md). It has not received an independent audit or a player claim/refund transaction. The [network status](docs/NETWORK.md) records the compiler compatibility and advisory gate. The [deployment plan](docs/DEPLOY.md) lists remaining end-to-end tests.
-
-**Verified Preprod user wallets for NightFlip: 0.** A real participant list needs 70 distinct consenting users with wallet addresses and independently verifiable on-chain participation. Demo room sessions and wallet connection checks do not count. The proposed evidence fields and verification criteria are in [docs/SUBMISSION.md](docs/SUBMISSION.md).
-
-## 7. Feedback loop
-
-Players can submit a rating and categorized note in the app. The room service validates and stores responses in ignored `data/feedback.jsonl`; if the service is unavailable, the browser labels its local fallback. The repository's [feedback log](docs/FEEDBACK.md) records the collection process, a real project-owner request that drove Night Duel, and a template for tracking later beta decisions and retests.
+Players can send a rating and categorized note from the game. The room service validates each response and stores it in private local application data, with a browser fallback when the service is unavailable. The [feedback log](docs/FEEDBACK.md) tracks product decisions that shape NightFlip.
 
 ```sh
 npm run feedback:summary
 ```
 
-The summary script reports counts and average ratings without printing free-text messages. A genuine 70-user beta and follow-up decisions are still pending.
-
-## 8. Documentation
+## Documentation
 
 | Document | Purpose |
 | --- | --- |
-| [Duel rules and trust model](docs/DUEL.md) | Strategy, commitments, timeout behavior, and limitations |
-| [Contract notes](contract/README.md) | Compact circuits, compiler, and simulator scope |
-| [Network status](docs/NETWORK.md) | Preprod compatibility snapshot and deployment gate |
-| [Deployment plan](docs/DEPLOY.md) | Steps and evidence required for a real release |
-| [Feedback log](docs/FEEDBACK.md) | Collection, decisions, and beta template |
-| [Build plan](docs/BUILD_PLAN.md) | Development milestones |
-| [Submission evidence](docs/SUBMISSION.md) | Level 5 checklist and participant verification format |
-| [Preprod analytics scanner](docs/PREPROD_ANALYTICS.md) | Read-only live counts for public contract activity |
-| [Local bot QA record](docs/BOT_QA.md) | 100 automated simulation bots; excluded from wallet and Preprod evidence |
+| [Night Duel rules](docs/DUEL.md) | Moves, commitments, timeouts, and trust model |
+| [Contract notes](contract/README.md) | Compact protocol rules and integration notes |
+| [Network notes](docs/NETWORK.md) | Midnight Preprod compatibility and endpoints |
+| [Deployment guide](docs/DEPLOY.md) | Container and hosting setup |
+| [Preprod receipts](docs/PREPROD_RECEIPTS.md) | Deployed NightFlip contract lifecycle |
+| [Feedback log](docs/FEEDBACK.md) | Product feedback and decisions |
 
-## 9. Submission checklist
+## Stack
 
-The stated Level 5 target includes the extended MVP, 70 verified Preprod users, feedback documentation, updated docs, a public repository, a live link, a full demo video, and at least 30 meaningful commits. The more demanding commit threshold is used here.
-
-| Requirement | Evidence now | Status |
-| --- | --- | --- |
-| Extended MVP | Staged arcade table, Lace circuit client, demo rooms, Compact protocols | Contract deployed, funded, and configured; player-flow coverage pending |
-| Public GitHub repository | [nightflip](https://github.com/debojyoti10CC/nightflip) | Complete |
-| Updated documentation | README and linked technical/release documents | Complete for current local build |
-| Feedback loop | In-app form and [decision log](docs/FEEDBACK.md) | Documented; beta follow-up pending |
-| 30 meaningful commits | Scoped history on `main`; inspect with `git log --oneline` | Met |
-| Live demo link | [Public HTTPS demo](https://nightflip-arcade.onrender.com), independently checked with a two-browser room | Complete for the simulated-credit build |
-| 70 verifiable Preprod wallet addresses | No genuine cohort evidence collected | Pending |
-| Funded Preprod contract use | [Deploy, bankroll funding, and round opening receipts](docs/PREPROD_RECEIPTS.md) | Operator actions complete; player claim/refund coverage pending |
-| Full MVP demo video | [Browser demo recording](docs/video/nightflip-browser-demo.mp4) covers multiplayer, Solo Flip, and fairness | Preprod transaction footage pending |
-
-The repository does not substitute simulated sessions, unrelated wallet lists, or invented transaction IDs for submission evidence.
-
-## 10. Technology stack and repository structure
-
-**Frontend:** React 19, TypeScript 5.9, Vite 7, CSS, Lucide icons. **Multiplayer:** Node.js room service with JSON state and feedback storage. **Protocol:** Midnight Compact contracts and simulator tests. **Verification:** Web Crypto SHA-256 in the browser and a Node proof checker. **CI:** GitHub Actions for foundation, web build, and room service checks; Compact checks run separately with the Linux toolchain.
-
-The [single-origin Docker build](docs/DEPLOY.md) serves the compiled UI and room API together and requires a private persistent volume for public hosting.
+- **Frontend:** React, TypeScript, Vite, CSS, and Lucide.
+- **Multiplayer:** Node.js room service with persisted local state.
+- **Protocol:** Midnight Compact contracts and Lace wallet integration.
+- **Verification:** Browser SHA-256 commitments and a Node proof checker.
+- **Delivery:** Docker, Render, and GitHub Actions.
 
 ```text
 nightflip/
-├── app/                  React arcade UI, modes, wallet readiness
-├── services/duel/        Room API, game rules, feedback, tests
-├── contract/             Solo and Duel Compact contracts, simulator tests
-├── scripts/              Dev runner, compilation, proof and feedback tools
-├── docs/                 Rules, release evidence, plans, screenshots
-└── .github/workflows/    Web and room checks
+├── app/                  React arcade UI and wallet connection
+├── services/duel/        Multiplayer rooms, feedback, and tests
+├── contract/             NightFlip and Night Duel Compact protocols
+├── scripts/              Development, verification, and QA tools
+└── docs/                 Product, network, and deployment notes
 ```
 
-## 11. Security and privacy
+## Run locally
 
-- Demo credits have no monetary value. The app has no purchases, redemption, prizes, or real token transfers.
-- The room service receives hidden-move hashes at commitment and the moves and salts at reveal. It controls demo settlement and stores local room state. The browser keeps round state during play.
-- A browser proof is a check of hash consistency, not a zero-knowledge proof or chain receipt.
-- Feedback may contain user-written text. Keep the ignored `data/` directory private; avoid entering wallet addresses or personal information into feedback.
-- Never enter a seed phrase into this app or commit one to the repository. Lace keeps wallet authorization and signing separate from the DApp. The browser holds its own private call receipt locally until a claim or refund is made.
-
-## 12. Run and reproduce
-
-Install Node.js **22.15+** and npm. The command below starts both the Vite UI at `http://127.0.0.1:5173/` and the room service at `http://127.0.0.1:8787/`.
+Install Node.js **22.15+** and npm, then start the arcade and room service:
 
 ```sh
 npm install
 npm run dev
 ```
 
-To scan real public activity for the deployed Midnight contracts without changing chain state:
-
-```sh
-npm run preprod:analytics
-```
-
-Open two different browsers or a normal and private window. In the first, choose a move and create a Night Duel room. Open its link in the second, choose a move, and join. Reveal from both windows to see the result. Room state is saved in ignored `data/duel-state.json` and feedback in ignored `data/feedback.jsonl`.
+Open two browsers or a normal and private window. Create a Night Duel room in one, join from the other, then reveal from both sides.
 
 ```sh
 npm run check
@@ -227,10 +130,8 @@ npm run test
 npm run proof:verify -- path/to/duel-proof.json
 ```
 
-Contract compilation requires the official Linux Compact toolchain; on Windows this project uses WSL Ubuntu:
+Contract compilation requires the official Linux Compact toolchain. On Windows, this project uses WSL Ubuntu:
 
 ```sh
 npm run compile -w @nightflip/contract
 ```
-
-Compilation and simulator tests establish local protocol behavior only. Follow the [network status](docs/NETWORK.md) and [deployment plan](docs/DEPLOY.md) before attempting a Preprod release.

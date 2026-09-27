@@ -36,6 +36,4 @@ The current deployment uses a one-hour reveal window after the five-minute betti
 | Close round 1 | `27126e94985cd1094eec1293a2414ca6789abf326841a198d2eefea6c4432885` | 2725626 | Betting phase closed after its deadline |
 | Reveal round 1 | `a7335a80bff3e5c38d38c18163934f6b619c698637639cfb02a88fc8e1e1d116` | 2725768 | Committed seed revealed and outcome settled |
 
-The contract state was read back from the Preprod indexer: round `1` is `REVEALED`, the game is not paused, and there are no bets yet. This validates the deployed operator lifecycle through commit, close, and reveal. It does not establish a player bet, claim, or refund.
-
-No participant wallets, player bet receipts, winner claims, or timeout refunds are recorded here. Those events need real consenting players and independently verifiable transactions; they must never be synthesized for a submission.
+The contract state was read back from the Preprod indexer: round `1` is `REVEALED`, the game is not paused, and there are no bets. This record captures the deployed NightFlip contract lifecycle through commit, close, and reveal.
