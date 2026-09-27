@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { firstValueFrom } from 'rxjs';
 import pino from 'pino';
 import { DustSecretKey, LedgerParameters, ZswapSecretKeys, unshieldedToken } from '@midnight-ntwrk/midnight-js-protocol/ledger';
-import { UnshieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
+import { MidnightBech32m, UnshieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
 import { PublicKey, UnshieldedWallet, createKeystore } from '@midnight-ntwrk/wallet-sdk-unshielded-wallet';
 import { ShieldedWallet } from '@midnight-ntwrk/wallet-sdk-shielded';
 import { DustWallet } from '@midnight-ntwrk/wallet-sdk-dust-wallet';
@@ -360,7 +360,7 @@ switch (command) {
       await waitForFunds(account.wallet);
       const { compiled } = await compiledContract('nightduel');
       const providers = { ...makeProviders(store, account.address, 'nightduel'), walletProvider: account.provider, midnightProvider: account.provider };
-      const decodedAddress = UnshieldedAddress.codec.decode(account.address);
+      const decodedAddress = UnshieldedAddress.codec.decode('preprod', MidnightBech32m.parse(account.address));
       const deployed = await deployContract(providers, {
         compiledContract: compiled,
         args: [{ bytes: new Uint8Array(decodedAddress.data) }],
