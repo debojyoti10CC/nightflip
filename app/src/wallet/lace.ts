@@ -8,7 +8,6 @@ export type WalletInfo = {
   indexerUri: string;
   indexerWsUri: string;
   nodeUri: string;
-  proofServerUri: string | null;
   dustBalance: bigint;
   dustCap: bigint;
   connected: ConnectedAPI;
@@ -29,7 +28,7 @@ export async function connectPreprodWallet(): Promise<WalletInfo> {
 
   const selected = wallets[0];
   const connected = await selected.connect('preprod');
-  await connected.hintUsage(['getUnshieldedAddress', 'getShieldedAddresses', 'getConfiguration', 'getDustBalance']);
+  await connected.hintUsage(['getUnshieldedAddress', 'getShieldedAddresses', 'getConfiguration', 'getDustBalance', 'getProvingProvider']);
   const [status, address, shielded, config, dust] = await Promise.all([
     connected.getConnectionStatus(),
     connected.getUnshieldedAddress(),
@@ -53,7 +52,6 @@ export async function connectPreprodWallet(): Promise<WalletInfo> {
     indexerUri: config.indexerUri,
     indexerWsUri: config.indexerWsUri,
     nodeUri: config.substrateNodeUri,
-    proofServerUri: config.proverServerUri ?? null,
     dustBalance: dust.balance,
     dustCap: dust.cap,
     connected,

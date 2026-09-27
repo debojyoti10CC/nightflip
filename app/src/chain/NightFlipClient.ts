@@ -2,11 +2,10 @@ import { CompiledContract } from '@midnight-ntwrk/midnight-js-protocol/compact-j
 import { fromHex, toHex } from '@midnight-ntwrk/midnight-js-protocol/compact-runtime';
 import { findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
-import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { Transaction } from '@midnight-ntwrk/midnight-js-protocol/ledger';
 import { MidnightBech32m, UnshieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
-import type { PrivateStateProvider } from '@midnight-ntwrk/midnight-js-types';
+import { createProofProvider, type PrivateStateProvider } from '@midnight-ntwrk/midnight-js-types';
 import type { WalletInfo } from '../wallet/lace';
 import * as Generated from '../generated/nightflip/index.js';
 
@@ -61,16 +60,16 @@ export class NightFlipClient {
   ) {}
 
   static async connect(wallet: WalletInfo, contractAddress: string) {
-    if (!wallet.proofServerUri) throw new Error('Lace did not provide a Preprod proof server URL. Update Lace and reconnect.');
     const compiled = CompiledContract.make('NightFlip', Generated.Contract).pipe(CompiledContract.withWitnesses({}));
     const zkConfigProvider = new FetchZkConfigProvider(`${window.location.origin}/zk`, fetch.bind(window));
+    const provingProvider = await wallet.connected.getProvingProvider(zkConfigProvider.asKeyMaterialProvider());
     const decodedAddress = MidnightBech32m.parse(wallet.unshieldedAddress).decode(UnshieldedAddress, 'preprod');
     const publicDataProvider = indexerPublicDataProvider(wallet.indexerUri, wallet.indexerWsUri);
     const providers = {
       privateStateProvider: makePrivateStateProvider(),
       publicDataProvider,
       zkConfigProvider,
-      proofProvider: httpClientProofProvider(wallet.proofServerUri!, zkConfigProvider),
+      proofProvider: createProofProvider(provingProvider),
       walletProvider: {
         getCoinPublicKey: () => wallet.shieldedCoinPublicKey,
         getEncryptionPublicKey: () => wallet.shieldedEncryptionPublicKey,
