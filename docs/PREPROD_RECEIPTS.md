@@ -33,7 +33,9 @@ The current deployment uses a one-hour reveal window after the five-minute betti
 | Deploy current NightFlip | `e16f9c5d482e76f1dc4bc72196b22efdb65cef0017983cba89da30629f0ba7ae` | 2725179 | Current contract address above created |
 | Fund bankroll | `f03cb6654be221cadd1d65edd75ff7e25d501a8a7f1c5abffb24e5e822fce591` | 2725318 | 100 test tNIGHT supplied to the contract bankroll |
 | Open round 1 | `bdfbe28ff2f5a5a0ef2d5a9b6a8e643c1deb52eedebbd2dfb7865617ba4ae62c` | 2725468 | Five-minute betting phase and one-hour reveal window, both in Unix seconds |
+| Close round 1 | `27126e94985cd1094eec1293a2414ca6789abf326841a198d2eefea6c4432885` | 2725626 | Betting phase closed after its deadline |
+| Reveal round 1 | `a7335a80bff3e5c38d38c18163934f6b619c698637639cfb02a88fc8e1e1d116` | 2725768 | Committed seed revealed and outcome settled |
 
-The contract state was read back from the Preprod indexer: round `1` is `OPEN`, the game is not paused, and there are no bets yet.
+The contract state was read back from the Preprod indexer: round `1` is `REVEALED`, the game is not paused, and there are no bets yet. This validates the deployed operator lifecycle through commit, close, and reveal. It does not establish a player bet, claim, or refund.
 
 No participant wallets, player bet receipts, winner claims, or timeout refunds are recorded here. Those events need real consenting players and independently verifiable transactions; they must never be synthesized for a submission.
