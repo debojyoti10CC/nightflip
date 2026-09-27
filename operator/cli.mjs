@@ -27,7 +27,7 @@ if (!/^[a-z0-9][a-z0-9-]*\.json$/i.test(storeFile)) throw new Error('NIGHTFLIP_O
 const storePath = resolve(root, 'data', storeFile);
 const stateDirectory = resolve(root, 'data', `${storeFile.slice(0, -5)}-state`);
 const dustSnapshotPath = resolve(root, 'data', `${storeFile.slice(0, -5)}-dust.json`);
-const artifactsPath = resolve(root, 'contract/src/managed/nightflip');
+const artifactsPath = (name) => resolve(root, `contract/src/managed/${name}`);
 const logger = pino({ level: process.env.NIGHTFLIP_OPERATOR_LOG_LEVEL ?? 'warn' });
 const env = {
   walletNetworkId: 'preprod', networkId: 'preprod',
@@ -213,21 +213,21 @@ async function registerDust(wallet, walletSeed) {
   return submitTransaction(wallet, transaction);
 }
 
-async function compiledContract() {
-  const info = JSON.parse(await readFile(resolve(artifactsPath, 'compiler/contract-info.json'), 'utf8'));
-  if (info['compiler-version'] !== '0.31.1') throw new Error('Refusing to deploy: compile NightFlip with vetted Compact 0.31.1 first');
-  const generated = await import('../contract/src/managed/nightflip/contract/index.js');
+async function compiledContract(name = 'nightflip') {
+  const info = JSON.parse(await readFile(resolve(artifactsPath(name), 'compiler/contract-info.json'), 'utf8'));
+  if (info['compiler-version'] !== '0.31.1') throw new Error(`Refusing to deploy ${name}: compile with vetted Compact 0.31.1 first`);
+  const generated = await import(`../contract/src/managed/${name}/contract/index.js`);
   return {
     generated,
-    compiled: CompiledContract.make('NightFlip', generated.Contract).pipe(
+    compiled: CompiledContract.make(name === 'nightflip' ? 'NightFlip' : 'NightDuel', generated.Contract).pipe(
       CompiledContract.withWitnesses({}),
-      CompiledContract.withCompiledFileAssets(artifactsPath),
+      CompiledContract.withCompiledFileAssets(artifactsPath(name)),
     ),
   };
 }
 
-function makeProviders(store, account) {
-  const zkConfigProvider = new NodeZkConfigProvider(artifactsPath);
+function makeProviders(store, account, contractName = 'nightflip') {
+  const zkConfigProvider = new NodeZkConfigProvider(artifactsPath(contractName));
   return {
     privateStateProvider: levelPrivateStateProvider({
       midnightDbName: stateDirectory,
@@ -354,6 +354,23 @@ switch (command) {
     });
     break;
   }
+  case 'deploy-duel': {
+    await withWallet(async (store, account) => {
+      if (store.duelContractAddress) throw new Error(`NightDuel is already deployed at ${store.duelContractAddress}`);
+      await waitForFunds(account.wallet);
+      const { compiled } = await compiledContract('nightduel');
+      const providers = { ...makeProviders(store, account.address, 'nightduel'), walletProvider: account.provider, midnightProvider: account.provider };
+      const decodedAddress = UnshieldedAddress.codec.decode(account.address);
+      const deployed = await deployContract(providers, {
+        compiledContract: compiled,
+        args: [{ bytes: new Uint8Array(decodedAddress.data) }],
+      });
+      store.duelContractAddress = deployed.deployTxData.public.contractAddress;
+      await saveStore(store);
+      printReceipt('deployNightDuel', deployed.deployTxData.public);
+    });
+    break;
+  }
   case 'fund': {
     const night = Number(argument);
     if (!Number.isSafeInteger(night) || night < 1 || night > 1_000) throw new Error('Usage: npm run operator -- fund <whole tNIGHT, 1-1000>');
@@ -415,7 +432,7 @@ switch (command) {
     break;
   }
   case 'help':
-    console.log('NightFlip Preprod operator: init | address | register-dust | sync-dust [seconds] | deploy | fund <NIGHT> | open [minutes] | close <round-id> | reveal <round-id> | status');
+    console.log('NightFlip Preprod operator: init | address | register-dust | sync-dust [seconds] | deploy | deploy-duel | fund <NIGHT> | open [minutes] | close <round-id> | reveal <round-id> | status');
     break;
   default:
     throw new Error(`Unknown command: ${command}`);
