@@ -156,6 +156,7 @@ The summary script reports counts and average ratings without printing free-text
 | [Feedback log](docs/FEEDBACK.md) | Collection, decisions, and beta template |
 | [Build plan](docs/BUILD_PLAN.md) | Development milestones |
 | [Submission evidence](docs/SUBMISSION.md) | Level 5 checklist and participant verification format |
+| [Preprod analytics scanner](docs/PREPROD_ANALYTICS.md) | Read-only live counts for public contract activity |
 
 ## 9. Submission checklist
 
@@ -206,6 +207,12 @@ Install Node.js **22.15+** and npm. The command below starts both the Vite UI at
 ```sh
 npm install
 npm run dev
+```
+
+To scan real public activity for the deployed Midnight contracts without changing chain state:
+
+```sh
+npm run preprod:analytics
 ```
 
 Open two different browsers or a normal and private window. In the first, choose a move and create a Night Duel room. Open its link in the second, choose a move, and join. Reveal from both windows to see the result. Room state is saved in ignored `data/duel-state.json` and feedback in ignored `data/feedback.jsonl`.
