@@ -23,6 +23,17 @@ The replacement operator uses Unix seconds for `closeAt` and `revealBy`, and its
 
 ## Current release
 
-The next deployment uses a one-hour reveal window after the five-minute betting phase, allowing the operator's real Preprod wallet to restore, prove, and submit the reveal. It will be configured in the public build only after its receipts are indexed.
+The current deployment uses a one-hour reveal window after the five-minute betting phase, allowing the operator's real Preprod wallet to restore, prove, and submit the reveal. The public build is configured with this contract address:
+
+- **Network:** Midnight Preprod
+- **NightFlip contract:** `c9c248ccee39612a2e8546c244f5b5da4f66b25ae04ace2936086690df1dfa40`
+
+| Action | Midnight transaction hash | Block | Recorded result |
+| --- | --- | ---: | --- |
+| Deploy current NightFlip | `e16f9c5d482e76f1dc4bc72196b22efdb65cef0017983cba89da30629f0ba7ae` | 2725179 | Current contract address above created |
+| Fund bankroll | `f03cb6654be221cadd1d65edd75ff7e25d501a8a7f1c5abffb24e5e822fce591` | 2725318 | 100 test tNIGHT supplied to the contract bankroll |
+| Open round 1 | `bdfbe28ff2f5a5a0ef2d5a9b6a8e643c1deb52eedebbd2dfb7865617ba4ae62c` | 2725468 | Five-minute betting phase and one-hour reveal window, both in Unix seconds |
+
+The contract state was read back from the Preprod indexer: round `1` is `OPEN`, the game is not paused, and there are no bets yet.
 
 No participant wallets, player bet receipts, winner claims, or timeout refunds are recorded here. Those events need real consenting players and independently verifiable transactions; they must never be synthesized for a submission.

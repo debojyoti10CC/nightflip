@@ -9,7 +9,7 @@
   <img src="docs/images/night-duel.png" width="100%" alt="NightFlip's 1990s arcade inspired Night Duel interface">
 </p>
 
-**A late 1990s arcade inspired Midnight game with hidden calls, staged reveals, and independently checkable outcomes.** The arcade includes a browser-side Lace client for the NightFlip Compact contract: it verifies the deployed contract, requests a player pass, makes a private Moon or Shadow call, follows the round state, and submits a winning claim. The public build remains gated while the release contract is replaced with a practical Preprod operator reveal window; see the [receipt record](docs/PREPROD_RECEIPTS.md).
+**A late 1990s arcade inspired Midnight game with hidden calls, staged reveals, and independently checkable outcomes.** The arcade includes a browser-side Lace client for the NightFlip Compact contract: it verifies the deployed contract, requests a player pass, makes a private Moon or Shadow call, follows the round state, and submits a winning claim. The public build is configured for the verified current Preprod contract; see the [receipt record](docs/PREPROD_RECEIPTS.md) before using test funds.
 
 | | |
 | --- | --- |
@@ -17,7 +17,7 @@
 | **Playable demo** | [nightflip-arcade.onrender.com](https://nightflip-arcade.onrender.com) — public build; a fresh Render deploy is required for the current arcade client |
 | **Browser demo video** | [Watch the two-player and Solo Flip recording](docs/video/nightflip-browser-demo.mp4); Preprod transaction footage pending |
 | **Preprod participant wallets** | 0 collected or verified for this game; 70 genuine on-chain participants required for the stated submission goal |
-| **Contract address** | Release replacement in progress; prior deployments and receipts are documented in [the receipt record](docs/PREPROD_RECEIPTS.md) |
+| **Contract address** | [`c9c248ccee39612a2e8546c244f5b5da4f66b25ae04ace2936086690df1dfa40`](docs/PREPROD_RECEIPTS.md) on Midnight Preprod |
 | **Feedback record** | [Collection process and decision log](docs/FEEDBACK.md) |
 | **Network** | Midnight Preprod; operator deployment, bankroll funding, and first round opening are recorded |
 | **Submission evidence** | [Level 5 checklist and release gates](docs/SUBMISSION.md) |
