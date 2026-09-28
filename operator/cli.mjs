@@ -397,9 +397,9 @@ switch (command) {
       // Wallet restoration and proof generation can take several minutes on Preprod.
       // Leave a full operator window after betting closes to publish the committed seed.
       const revealBy = closeAt + 60n * 60n;
+      const tx = await found.callTx.openRound(commitment, closeAt, revealBy, hexBytes(store.operatorSecret, 'operatorSecret'));
       store.rounds[roundId.toString()] = { seed: seed.toString('hex'), closeAt: closeAt.toString(), revealBy: revealBy.toString() };
       await saveStore(store);
-      const tx = await found.callTx.openRound(commitment, closeAt, revealBy, hexBytes(store.operatorSecret, 'operatorSecret'));
       printReceipt('openRound', tx.public);
       console.log(`Round ${roundId} open until ${new Date(Number(closeAt) * 1_000).toISOString()}`);
     });
