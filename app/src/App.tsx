@@ -8,6 +8,7 @@ import {
   loadDemo, saveDemo,
   verifyDemoRound, type DemoRound, type DemoSave, type Side,
 } from './game/demo';
+import Duel from './Duel';
 import './duel.css';
 import { connectPreprodWallet, hasPreprodWallet, type WalletInfo } from './wallet/lace';
 import { NightStage, type NightStagePhase } from './scene/NightStage';
@@ -109,7 +110,7 @@ function FeedbackPanel({ mode, onClose }: { mode: 'solo' | 'duel'; onClose: () =
 }
 
 function App() {
-  const [mode, setMode] = useState<'duel' | 'solo'>('solo');
+  const [mode, setMode] = useState<'duel' | 'solo'>('duel');
   const [save, setSave] = useState<DemoSave>(loadDemo);
   const [selection, setSelection] = useState<Side | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -258,7 +259,8 @@ function App() {
     <header className="site-header">
       <div className="brand" aria-label="NightFlip home"><span className="brand-emblem"><span>✦</span></span><span className="brand-name">NIGHT<span>FLIP</span><small>MOON OR NOTHING</small></span></div>
       <nav className={mobileMenu ? 'main-nav open' : 'main-nav'} aria-label="Main navigation">
-        <button className="nav-link active" onClick={() => { setMode('solo'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMobileMenu(false); }}>THE GAME</button>
+        <button className={`nav-link ${mode === 'duel' ? 'active' : ''}`} onClick={() => { setMode('duel'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMobileMenu(false); }}>NIGHT ROOMS</button>
+        <button className={`nav-link ${mode === 'solo' ? 'active' : ''}`} onClick={() => { setMode('solo'); window.scrollTo({ top: 0, behavior: 'smooth' }); setMobileMenu(false); }}>PREPROD TABLE</button>
         <button className="nav-link" onClick={() => { setPanel('how'); setMobileMenu(false); }}>HOW TO PLAY</button>
         <button className="nav-link" onClick={() => { setPanel('fairness'); setMobileMenu(false); }}>FAIRNESS</button>
         <button className="nav-link" onClick={() => { setPanel('feedback'); setMobileMenu(false); }}>FEEDBACK</button>
@@ -269,7 +271,7 @@ function App() {
     <main>
       <section className="intro-strip"><div><span className="intro-kicker"><span className="intro-star">✳</span> WELCOME TO THE AFTER HOURS</span><h1>{mode === 'duel' ? <>OUTSMART A RIVAL.<br /><em>OWN THE NIGHT.</em></> : <>CALL THE COIN.<br /><em>CHASE THE NIGHT.</em></>}</h1><p>{mode === 'duel' ? 'Three hidden moves. One real opponent. Your call.' : 'One private pick. One fixed stake. One moment of truth.'}</p></div><div className="intro-stamp"><span>THE MIDNIGHT</span><strong>ARCADE</strong><span>EST. 199X</span></div></section>
 
-      <div className="game-layout">
+      {mode === 'duel' ? <Duel /> : <div className="game-layout">
         <section className="game-frame" aria-label="NightFlip game">
           <div className="frame-top"><div className="frame-heading"><span className="frame-symbol">✦</span> THE NIGHT ROOM <span className="frame-sub">// PREPROD TABLE</span></div><div className="frame-controls"><span className="round-status"><span /> {chainRound ? `ROUND ${chainRound.id} • ${chainRound.state}` : contractAddress ? `CONTRACT ${contractAddress.slice(0, 8)}…` : 'CONTRACT NOT DEPLOYED'}</span><button className="small-icon sound-toggle" onClick={() => void toggleSound()} aria-label={sound ? 'Mute arcade music' : 'Play arcade music'} title={sound ? 'Mute arcade music' : 'Play arcade music'}>{sound ? <><Volume2 size={16} /><small>SOUND ON</small></> : <><VolumeX size={16} /><small>SOUND OFF</small></>}</button></div></div>
 
@@ -309,7 +311,7 @@ function App() {
 
           <button className="fairness-card" onClick={() => setPanel('fairness')}><span className="fairness-icon"><ShieldCheck size={27} /></span><span><strong>FAIR PLAY,<br />NO GUESSWORK.</strong><small>See how the coin is locked before you play.</small><b>EXPLORE FAIRNESS <ArrowRight size={14} /></b></span></button>
         </aside>
-      </div>
+      </div>}
 
       <section className="how-strip"><div><span className="eyebrow">{mode === 'duel' ? 'THE DUEL FLOW' : 'THE RULES ARE SIMPLE'}</span><h2>THREE MOVES.<br /><em>ONE FATE.</em></h2></div>{mode === 'duel' ? <><div className="rule"><span>01</span><MoonStar size={27} /><strong>CHOOSE & COMMIT</strong><p>Pick Moon, Shadow, or Star. Only a salted hash reaches the room service.</p></div><div className="rule"><span>02</span><Users size={29} /><strong>BRING A RIVAL</strong><p>Share the room link. Both players lock one demo credit before any reveal.</p></div><div className="rule"><span>03</span><ShieldCheck size={29} /><strong>REVEAL & VERIFY</strong><p>Both moves are checked against their commitments. Winner gets 1.90; ties refund both.</p></div></> : <><div className="rule"><span>01</span><SideMark side="MOON" size={27} /><strong>CHOOSE A SIDE</strong><p>Moon or Shadow. Your choice stays hidden behind a commitment.</p></div><div className="rule"><span>02</span><Coins size={29} /><strong>LOCK YOUR STAKE</strong><p>One fixed test stake enters the NightFlip contract. No bet sliders, no surprises.</p></div><div className="rule"><span>03</span><Sparkles size={29} /><strong>REVEAL & CLAIM</strong><p>Watch the coin, verify the revealed seed, then claim on-chain if you win.</p></div></>}</section>
       <section className="closing-banner"><span>✦</span><p>THE NIGHT IS YOUNG. <strong>{mode === 'duel' ? 'WHO WILL OWN THE ROOM?' : "WHAT'S YOUR CALL?"}</strong></p><button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>BACK TO TOP ↑</button></section>
